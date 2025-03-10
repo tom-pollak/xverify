@@ -1,8 +1,9 @@
 import inspect
 from abc import abstractmethod
-from typing import Callable, Type, Literal, Annotated, Union, Tuple
-from pydantic import BaseModel, Field, create_model
+from typing import Annotated, Callable, Literal, Tuple, Type, Union
+
 from fastcore.docments import docments
+from pydantic import BaseModel, Field, create_model
 
 __all__ = ["ToolUse", "run_tools"]
 
