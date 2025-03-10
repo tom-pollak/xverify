@@ -2,6 +2,8 @@
 Tools for the verifier, modified from willccbb/verifiers
 """
 
+__all__ = ["calculator", "search"]
+
 
 def calculator(
     expression: str,  # A mathematical expression using only numbers and basic operators (+,-,*,/,**,())
