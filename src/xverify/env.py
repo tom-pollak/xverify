@@ -1,9 +1,7 @@
 from typing import Callable
-
 from pydantic import BaseModel
-
-from vllm.sampling_params import GuidedDecodingParams
-
+import jsonschema2md
+from vllm.sampling_params import GuidedDecodingParams, SamplingParams
 from xverify.tool_use import run_tools
 
 
@@ -30,6 +28,13 @@ class Env:
 
     def parse(self, message: str) -> BaseModel:
         return self.model.model_validate_json(message)
+
+    def schema_md(self) -> str:
+        parser = jsonschema2md.Parser(
+            examples_as_yaml=True,
+            show_examples="all",
+        )
+        return "".join(parser.parse_schema(self.model.model_json_schema()))
 
     def env_response(self, trajectory: list[dict]) -> dict | None:
         last_message = trajectory[-1]
@@ -75,3 +80,6 @@ class Env:
             "include_stop_str_in_output": False,
             **kwargs,
         }
+
+    def sampling_params(self, **kwargs):
+        return SamplingParams(**self.sampling_args(**kwargs))

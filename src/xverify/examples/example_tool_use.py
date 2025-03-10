@@ -1,7 +1,7 @@
 # %%
 from pydantic import BaseModel
-from xverify.src.xverify import ToolUse, run_tools
-from xverify.src.xverify.tools import calculator, search
+from xverify.tool_use import ToolUse, run_tools
+from xverify.tools import calculator, search
 
 
 class ReasoiningToolResult(BaseModel):
