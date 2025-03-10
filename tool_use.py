@@ -4,7 +4,7 @@ from typing import Callable, Type, Literal, Annotated, Union, Tuple
 from pydantic import BaseModel, Field, create_model
 from fastcore.docments import docments
 
-__all__ = ["ToolUse", "run_tool_nested"]
+__all__ = ["ToolUse", "run_tools"]
 
 
 class ToolUse:
@@ -37,11 +37,11 @@ class ToolUse:
     def run_tool(self): ...  # see BaseTool
 
 
-def run_tool_nested(model: BaseModel) -> dict | None:
+def run_tools(model: BaseModel) -> dict | None:
     """
     Run all tools in the model. Return a dictionary of nested results.
     """
-    return _recursive_run_tool(model)  # type: ignore
+    return _run_nested_tools(model)  # type: ignore
 
 
 class BaseTool(BaseModel):
@@ -100,7 +100,7 @@ def _tool2model(tool: Callable) -> Type[BaseTool]:
     )
 
 
-def _recursive_run_tool(item):
+def _run_nested_tools(item):
     match item:
         # If the item is a tool, run it and return its output keyed by the tool name.
         case BaseTool() as tool:
@@ -108,19 +108,19 @@ def _recursive_run_tool(item):
 
         # For any other BaseModel, process its fields recursively and filter out empty results.
         case BaseModel():
-            subitems = {field: _recursive_run_tool(value) for field, value in item}
+            subitems = {field: _run_nested_tools(value) for field, value in item}
             subitems = {k: v for k, v in subitems.items() if v is not None}
             return subitems or None
 
         # Process list, tuple, and set in the same branch.
         case list() | tuple() | set() as container:
-            processed = [_recursive_run_tool(i) for i in container]
+            processed = [_run_nested_tools(i) for i in container]
             processed = type(container)(x for x in processed if x is not None)
             return processed or None
 
         # Process dictionaries recursively.
         case dict():
-            new_dict = {k: _recursive_run_tool(v) for k, v in item.items()}
+            new_dict = {k: _run_nested_tools(v) for k, v in item.items()}
             new_dict = {k: v for k, v in new_dict.items() if v is not None}
             return new_dict or None
 
