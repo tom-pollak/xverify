@@ -8,6 +8,20 @@ __all__ = ["ToolUse", "run_tool_nested"]
 
 
 class ToolUse:
+    """
+    Use tools in a pydantic model.
+
+    Examples:
+    ```python
+    class ReasoiningToolResult(BaseModel):
+        reasoning: str
+        tool_use: ToolUse[calculator, search] # pick one of the tools
+        tool_use2: ToolUse[calculator] # only one tool
+        tool_use3: ToolUse[calculator] | None # optional
+        tool_use4: list[ToolUse[calculator, search]] # list of tools
+    ```
+    """
+
     @classmethod
     def __class_getitem__(cls, tools: tuple[Callable] | Callable):
         # multiple funcs
@@ -23,33 +37,11 @@ class ToolUse:
     def run_tool(self): ...  # see BaseTool
 
 
-def run_tool_nested(model):
-    match model:
-        # If the item is a tool, run it and return its output keyed by the tool name.
-        case BaseTool() as tool:
-            return {tool.tool_name: tool.run_tool()}  # type: ignore
-
-        # For any other BaseModel, process its fields recursively and filter out empty results.
-        case BaseModel():
-            subitems = {field: run_tool_nested(value) for field, value in model}
-            subitems = {k: v for k, v in subitems.items() if v is not None}
-            return subitems or None
-
-        # Process list, tuple, and set in the same branch.
-        case list() | tuple() | set() as container:
-            processed = [run_tool_nested(i) for i in container]
-            processed = type(container)(x for x in processed if x is not None)
-            return processed or None
-
-        # Process dictionaries recursively.
-        case dict():
-            new_dict = {k: run_tool_nested(v) for k, v in model.items()}
-            new_dict = {k: v for k, v in new_dict.items() if v is not None}
-            return new_dict or None
-
-        # For any other type, ignore it.
-        case _:
-            return None
+def run_tool_nested(model: BaseModel) -> dict | None:
+    """
+    Run all tools in the model. Return a dictionary of nested results.
+    """
+    return _recursive_run_tool(model)  # type: ignore
 
 
 class BaseTool(BaseModel):
@@ -106,3 +98,32 @@ def _tool2model(tool: Callable) -> Type[BaseTool]:
         __cls_kwargs__=dict(_tool_func=tool),
         **fields,
     )
+
+
+def _recursive_run_tool(item):
+    match item:
+        # If the item is a tool, run it and return its output keyed by the tool name.
+        case BaseTool() as tool:
+            return {tool.tool_name: tool.run_tool()}  # type: ignore
+
+        # For any other BaseModel, process its fields recursively and filter out empty results.
+        case BaseModel():
+            subitems = {field: _recursive_run_tool(value) for field, value in item}
+            subitems = {k: v for k, v in subitems.items() if v is not None}
+            return subitems or None
+
+        # Process list, tuple, and set in the same branch.
+        case list() | tuple() | set() as container:
+            processed = [_recursive_run_tool(i) for i in container]
+            processed = type(container)(x for x in processed if x is not None)
+            return processed or None
+
+        # Process dictionaries recursively.
+        case dict():
+            new_dict = {k: _recursive_run_tool(v) for k, v in item.items()}
+            new_dict = {k: v for k, v in new_dict.items() if v is not None}
+            return new_dict or None
+
+        # For any other type, ignore it.
+        case _:
+            return None
