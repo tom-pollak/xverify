@@ -9,6 +9,7 @@ dependencies = [
     "fastcore>=1.7.29",
     "pydantic-gbnf-grammar-generator",
     "pydantic>=2.10.6",
+    "xmltodict>=0.14.2",
 ]
 
 [build-system]

@@ -1,3 +1,4 @@
+# fmt: off
 import inspect
 from abc import abstractmethod
 from typing import Annotated, Callable, Literal, Tuple, Type, Union
@@ -79,6 +80,9 @@ def _tool2model(tool: Callable) -> Type[BaseTool]:
 
     # Build input parameters
     fields: dict = {
+        "tool_name": (Literal[name], Field(..., description="Function to call")) # type: ignore
+    }
+    fields.update({
         name: (
             info["anno"],  # parameter type
             Field(
@@ -87,11 +91,7 @@ def _tool2model(tool: Callable) -> Type[BaseTool]:
             ),
         )
         for name, info in docs.items()
-    }
-    fields["tool_name"] = (
-        Literal[name],  # type: ignore
-        Field(..., description="Function to call"),
-    )
+    })
     return create_model(
         name,
         __doc__=docstring,
@@ -113,13 +113,13 @@ def _run_nested_tools(item):
             subitems = {k: v for k, v in subitems.items() if v is not None}
             return subitems or None
 
-        # Process list, tuple, and set in the same branch.
+        # Iterable containers
         case list() | tuple() | set() as container:
             processed = [_run_nested_tools(i) for i in container]
             processed = type(container)(x for x in processed if x is not None)
             return processed or None
 
-        # Process dictionaries recursively.
+        # Mapping containers
         case dict():
             new_dict = {k: _run_nested_tools(v) for k, v in item.items()}
             new_dict = {k: v for k, v in new_dict.items() if v is not None}
