@@ -1220,14 +1220,16 @@ wheels = [
 [[package]]
 name = "pydantic-gbnf-grammar-generator"
 version = "0.1.1"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "src/pydantic-gbnf-grammar-generator" }
 dependencies = [
     { name = "docstring-parser" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1f/59/b3381ec58a1a8435e5c466e4c5a879e767872f1ae8b3e859c0f4358c9f33/pydantic_gbnf_grammar_generator-0.1.1.tar.gz", hash = "sha256:0c1c5ffc7c6853fab87ead81a3b7e2db7d9cd4910c145cccd34b89081ff0dd0c", size = 16831 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/09/d6622d0ad9215d02c19555b42fcdcf73cde3c79b4a4a0595cc5bedf696a5/pydantic_gbnf_grammar_generator-0.1.1-py3-none-any.whl", hash = "sha256:62b6c9fbd2f7b51fd83e4d04164466b6a89f2a34c25b056bbf54186cbcb35152", size = 14972 },
+
+[package.metadata]
+requires-dist = [
+    { name = "docstring-parser", specifier = "==0.16" },
+    { name = "pydantic", specifier = ">=2.5.3" },
 ]
 
 [[package]]
@@ -1704,7 +1706,7 @@ tools = [
 requires-dist = [
     { name = "fastcore", specifier = ">=1.7.29" },
     { name = "pydantic", specifier = ">=2.10.6" },
-    { name = "pydantic-gbnf-grammar-generator", specifier = ">=0.1.1" },
+    { name = "pydantic-gbnf-grammar-generator", editable = "src/pydantic-gbnf-grammar-generator" },
 ]
 
 [package.metadata.requires-dev]
