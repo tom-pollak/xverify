@@ -19,7 +19,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "ipykernel>=6.29.5",
+    "jupyter>=1.1.1",
 ]
 tools = [
     "duckduckgo-search>=7.5.1",
