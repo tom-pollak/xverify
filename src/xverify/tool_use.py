@@ -5,7 +5,7 @@ from typing import Annotated, Callable, Literal, Tuple, Type, Union
 from fastcore.docments import docments
 from pydantic import BaseModel, Field, create_model
 
-__all__ = ["ToolUse", "run_tools"]
+__all__ = ["ToolUse", "run_tools", "BaseTool"]
 
 
 class ToolUse:
