@@ -3,6 +3,8 @@ from pydantic import BaseModel
 from vllm.sampling_params import GuidedDecodingParams, SamplingParams
 from xverify.tool_use import run_tools
 
+from pydantic_gbnf_grammar_generator import generate_gbnf_grammar_and_documentation
+
 
 class Env:
     """
@@ -17,9 +19,15 @@ class Env:
 
     """
 
+    model: type[BaseModel]
+    max_steps: int
+    gbnf: str
+    doc: str
+
     def __init__(self, model: type[BaseModel], max_steps: int = 10):
         self.model = model
         self.max_steps = max_steps
+        self.gbnf, self.doc = generate_gbnf_grammar_and_documentation([self.model])
 
     @staticmethod
     def contents(trajectory: list[dict], role: str = "assistant") -> list[str]:
@@ -57,7 +65,8 @@ class Env:
     def guided_decoding_args(self, **kwargs):
         assert "json" not in kwargs, "Parser handles json"
         return GuidedDecodingParams.from_optional(
-            json=self.model.model_json_schema(),
+            # json=self.model.model_json_schema(),
+            grammar=self.gbnf,
             # whitespace_pattern=r"[\n ]?",
             # backend="outlines",
             **kwargs,
