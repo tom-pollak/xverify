@@ -408,9 +408,6 @@ def test_union_model():
     run_model_parsing_test(UnionModel, xml)
 
 
-
-
-
 def test_nested_union_model():
     """Test model with nested union field."""
     xml = """
@@ -423,6 +420,20 @@ def test_nested_union_model():
     </NestedUnionModel>
     """
     run_model_parsing_test(NestedUnionModel, xml)
+
+
+def test_nested_discriminated_union_model():
+    """Test model with nested discriminated union field."""
+    xml = """
+    <NestedDiscriminatedUnionModel>
+    <value>
+    <A>
+    <a_value>42</a_value>
+    </A>
+    </value>
+    </NestedDiscriminatedUnionModel>
+    """
+    run_model_parsing_test(NestedDiscriminatedUnionModel, xml)
 
 
 # Tests for tool use models
