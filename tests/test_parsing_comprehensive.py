@@ -131,10 +131,10 @@ def generate_field_xml(field_name, field_type):
     elif field_type == float:
         return f"<{field_name}>3.14</{field_name}>"
     
-    # Handle list types
+    # Handle list types with new format
     elif origin == list:
         item_type = args[0] if args else Any
-        return f"<{field_name}>\n<items>\n<item>{generate_simple_value(item_type)}</item>\n</items>\n</{field_name}>"
+        return f"<{field_name}>\n<list>\n<list-item>{generate_simple_value(item_type)}</list-item>\n</list>\n</{field_name}>"
     
     # Handle union types (including Optional)
     elif origin == Union:
@@ -144,9 +144,9 @@ def generate_field_xml(field_name, field_type):
                 return f"<{field_name}>{generate_simple_value(arg)}</{field_name}>"
         return f"<{field_name}>null</{field_name}>"
     
-    # Handle dict types
+    # Handle dict types with new format
     elif origin == dict:
-        return f"<{field_name}>\n<dictionary>\n<entry>\n<key>sample_key</key>\n<value>sample_value</value>\n</entry>\n</dictionary>\n</{field_name}>"
+        return f"<{field_name}>\n<dict>\n<dict-entry>\n<key>sample_key</key>\n<value>sample_value</value>\n</dict-entry>\n</dict>\n</{field_name}>"
     
     # Default for unknown/complex types
     return f"<{field_name}>sample value</{field_name}>"
@@ -304,22 +304,24 @@ def test_nested_model():
 # Tests for container models
 def test_list_model():
     """Test model with list fields."""
-    # Let's fix the XML format based on the validation error
+    # Using the new list format with multiple items
     xml = """
     <ListModel>
     <items>
-    <items>
-    <item>Item 1</item>
-    </items>
+    <list>
+    <list-item>Item 1</list-item>
+    <list-item>Item 2</list-item>
+    <list-item>Item 3</list-item>
+    </list>
     </items>
     <numbers>
-    <items>
-    <item>1</item>
-    </items>
+    <list>
+    <list-item>42</list-item>
+    <list-item>43</list-item>
+    </list>
     </numbers>
     </ListModel>
     """
-    # Simpler version to debug
     run_model_parsing_test(ListModel, xml)
 
 
@@ -328,34 +330,32 @@ def test_dict_model():
     xml = """
     <DictModel>
     <properties>
-    <dictionary>
-    <entry>
+    <dict>
+    <dict-entry>
     <key>key1</key>
     <value>value1</value>
-    </entry>
-    <entry>
+    </dict-entry>
+    <dict-entry>
     <key>key2</key>
     <value>value2</value>
-    </entry>
-    </dictionary>
+    </dict-entry>
+    </dict>
     </properties>
     <metadata>
-    <dictionary>
-    <entry>
+    <dict>
+    <dict-entry>
     <key>count</key>
     <value>42</value>
-    </entry>
-    <entry>
+    </dict-entry>
+    <dict-entry>
     <key>active</key>
     <value>true</value>
-    </entry>
-    </dictionary>
+    </dict-entry>
+    </dict>
     </metadata>
     </DictModel>
     """
-    # Skip for now until we fix dict format issues
-    # run_model_parsing_test(DictModel, xml)
-    pytest.skip("Dict format needs to be fixed")
+    run_model_parsing_test(DictModel, xml)
 
 
 # Tests for union models
@@ -394,27 +394,25 @@ def test_multi_tool_use_model():
     <MultiToolUseModel>
     <task>Perform multiple operations</task>
     <tools>
-    <items>
-    <item>
+    <list>
+    <list-item>
     <calculator>
     <tool_name>calculator</tool_name>
     <expression>2 + 2</expression>
     </calculator>
-    </item>
-    <item>
+    </list-item>
+    <list-item>
     <search>
     <tool_name>search</tool_name>
     <query>python programming</query>
     <num_results>3</num_results>
     </search>
-    </item>
-    </items>
+    </list-item>
+    </list>
     </tools>
     </MultiToolUseModel>
     """
-    # Skip for now until we fix tool list format issues
-    # run_model_parsing_test(MultiToolUseModel, xml)
-    pytest.skip("Tool list format needs to be fixed")
+    run_model_parsing_test(MultiToolUseModel, xml)
 
 
 # Tests for complex models
@@ -424,33 +422,31 @@ def test_recursive_model():
     <RecursiveItem>
     <name>Root Item</name>
     <children>
-    <items>
-    <item>
+    <list>
+    <list-item>
     <RecursiveItem>
     <name>Child 1</name>
     <children>
-    <items>
-    <item>
+    <list>
+    <list-item>
     <RecursiveItem>
     <name>Grandchild</name>
     </RecursiveItem>
-    </item>
-    </items>
+    </list-item>
+    </list>
     </children>
     </RecursiveItem>
-    </item>
-    <item>
+    </list-item>
+    <list-item>
     <RecursiveItem>
     <name>Child 2</name>
     </RecursiveItem>
-    </item>
-    </items>
+    </list-item>
+    </list>
     </children>
     </RecursiveItem>
     """
-    # Skip for now until we fix recursion issues
-    # run_model_parsing_test(RecursiveItem, xml)
-    pytest.skip("Recursive model handling needs to be fixed")
+    run_model_parsing_test(RecursiveItem, xml)
 
 
 def test_complex_model():
@@ -461,46 +457,44 @@ def test_complex_model():
     <name>Complex Example</name>
     <status>active</status>
     <items>
-    <items>
-    <item>
+    <list>
+    <list-item>
     <RecursiveItem>
     <name>Item 1</name>
     <children>
-    <items>
-    <item>
+    <list>
+    <list-item>
     <RecursiveItem>
     <name>Subitem 1</name>
     </RecursiveItem>
-    </item>
-    </items>
+    </list-item>
+    </list>
     </children>
     </RecursiveItem>
-    </item>
-    </items>
+    </list-item>
+    </list>
     </items>
     <metadata>
-    <dictionary>
-    <entry>
+    <dict>
+    <dict-entry>
     <key>created_at</key>
     <value>2023-01-01</value>
-    </entry>
-    </dictionary>
+    </dict-entry>
+    </dict>
     </metadata>
     <tools>
-    <items>
-    <item>
+    <list>
+    <list-item>
     <calculator>
     <tool_name>calculator</tool_name>
     <expression>2 * 3.14</expression>
     </calculator>
-    </item>
-    </items>
+    </list-item>
+    </list>
     </tools>
     </ComplexModel>
     """
-    # Skip for now until we fix complex model issues
-    # run_model_parsing_test(ComplexModel, xml)
-    pytest.skip("Complex model parsing with recursion needs to be fixed")
+    run_model_parsing_test(ComplexModel, xml)
 
 
 # Tests for invalid XML

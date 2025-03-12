@@ -7,16 +7,16 @@ __all__ = ["parse_xml_to_model"]
 
 def parse_xml_to_model(model: Type[BaseModel], xml_text: str) -> BaseModel:
     # Force various container tags to be parsed as lists
-    force_list = ("list", "set", "list-item", "set-item", "dict-entry")
+    force_list = ("list", "set", "dict-entry")
     parsed = xmltodict.parse(xml_text, force_list=force_list)
-    
+
     # Include all container tags in model names for handling
     model_names = {
-        "list", "set", "dict", 
+        "list", "set", "dict",
         "list-item", "set-item", "dict-entry",
         *(_get_model_names(model))
     }
-    
+
     squeezed = _squeeze_model_keys(parsed, model_names)
     return model.model_validate(squeezed)
 
