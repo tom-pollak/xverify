@@ -9,6 +9,7 @@ dependencies = [
     "docstring-parser>=0.16",
     "fastcore>=1.7.29",
     "pydantic>=2.10.6",
+    "wandb>=0.19.8",
     "xmltodict>=0.14.2",
 ]
 

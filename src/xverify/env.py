@@ -8,7 +8,7 @@ from .tool_use import run_tools
 from .xml import generate_gbnf_grammar_and_documentation, parse_xml_to_model
 
 
-class Env:
+class Environment:
     """
     A trajectory is completed when either:
     - `env_response` returns None -- no tool is used
