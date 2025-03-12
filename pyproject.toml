@@ -9,18 +9,27 @@ dependencies = [
     "docstring-parser>=0.16",
     "fastcore>=1.7.29",
     "pydantic>=2.10.6",
+    "trl",
+    "vllm>=0.7.3",
     "wandb>=0.19.8",
     "xmltodict>=0.14.2",
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/tompollak/xverify"
+"Repository" = "https://github.com/tompollak/xverify"
+"Issues" = "https://github.com/tompollak/xverify/issues"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = [
-    "jupyter>=1.1.1",
-    "pytest-cov>=6.0.0",
-    "pytest>=8.3.5",
-]
+dev = ["jupyter>=1.1.1", "pytest-cov>=6.0.0", "pytest>=8.3.5"]
+
+
+[project.optional-dependencies]
 tools = ["duckduckgo-search>=7.5.1"]
+
+[tool.uv.sources]
+trl = { git = "https://github.com/huggingface/trl.git" }

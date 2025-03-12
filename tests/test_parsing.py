@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 import xmltodict
 from xml.parsers.expat import ExpatError as ParseError
 
-from xverify import Env, XMLToolUse
+from xverify import Environment, XMLToolUse
 from xverify.tools import calculator, search
 
 
@@ -66,7 +66,7 @@ def run_model_parsing_test(model_cls, xml_response=None, should_parse=True):
         should_parse: Whether parsing should succeed
     """
     # Initialize environment with model
-    env = Env(model_cls)
+    env = Environment(model_cls)
 
     # Use mock LLM for testing
     mock_llm = MockLLM()
@@ -588,7 +588,7 @@ def test_with_real_llm():
     llm = LLM(model="Qwen/Qwen2.5-1.5B-Instruct", max_model_len=2000)
 
     # Test with simple model
-    env = Env(SimpleModel)
+    env = Environment(SimpleModel)
     prompt = f"You are a structured output testing engineer. Fuzzily test the structured output given:\n{env.doc}"
 
     sampling_params = env.sampling_params(max_tokens=500, temperature=1.0)
