@@ -428,7 +428,19 @@ def generate_gbnf_rule_for_type(
                 union_rules.append(union_gbnf_type)
                 rules.extend(union_rules_list)
 
-            elif not issubclass(union_type, type(None)):
+            elif isinstance(union_type, type) and not issubclass(union_type, type(None)):
+                union_gbnf_type, union_rules_list = generate_gbnf_rule_for_type(
+                    model_name,
+                    field_name,
+                    union_type,
+                    False,
+                    processed_models,
+                    created_rules,
+                )
+                union_rules.append(union_gbnf_type)
+                rules.extend(union_rules_list)
+            # Handle non-class types in the union
+            elif not isinstance(union_type, type):
                 union_gbnf_type, union_rules_list = generate_gbnf_rule_for_type(
                     model_name,
                     field_name,
