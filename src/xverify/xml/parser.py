@@ -83,12 +83,14 @@ def _squeeze_model_keys(data, model_names: set[str]):
             assert len(data) == 1
             # dicts are represented as {"key": ["key1", "key2"], "value": ["value1", "value2"]}
             return dict(zip(*data["dict"].values()))
-        elif len(data) == 1:
-            key, value = next(iter(data.items()))
-            if key in model_names:
-                return _squeeze_model_keys(value, model_names)
-        else:
-            return {k: _squeeze_model_keys(v, model_names) for k, v in data.items()}
+
+        key, value = next(iter(data.items()))
+        if key in model_names:
+            assert len(data) == 1
+            return _squeeze_model_keys(value, model_names)
+
+        return {k: _squeeze_model_keys(v, model_names) for k, v in data.items()}
+
     elif isinstance(data, list):
         if data == [None]:
             return []
