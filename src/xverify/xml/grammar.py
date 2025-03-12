@@ -943,15 +943,21 @@ def generate_field_markdown(
         field_info.description if field_info and field_info.description else ""
     )
 
-    if isinstance(get_origin(field_type), list):
+    if get_origin(field_type) is list:
         element_type = get_args(field_type)[0]
         field_text = (
-            f"{indent}{field_name} ({field_type.__name__} of {element_type.__name__})"
+            f"{indent}{field_name} (list of {element_type.__name__})"
         )
         if field_description != "":
             field_text += ":\n"
         else:
             field_text += "\n"
+            
+        # Recursively show details for nested elements
+        if isclass(element_type) and issubclass(element_type, BaseModel):
+            field_text += f"{indent}  Items Details:\n"
+            for name, type_ in element_type.__annotations__.items():
+                field_text += generate_field_markdown(name, type_, element_type, depth + 2)
     elif is_union_type(field_type):
         element_types = get_args(field_type)
         types = []
@@ -1108,15 +1114,21 @@ def generate_field_text(
         field_info.description if field_info and field_info.description else ""
     )
 
-    if isinstance(get_origin(field_type), list):
+    if get_origin(field_type) is list:
         element_type = get_args(field_type)[0]
         field_text = (
-            f"{indent}{field_name} ({field_type.__name__} of {element_type.__name__})"
+            f"{indent}{field_name} (list of {element_type.__name__})"
         )
         if field_description != "":
             field_text += ":\n"
         else:
             field_text += "\n"
+            
+        # Recursively show details for nested elements
+        if isclass(element_type) and issubclass(element_type, BaseModel):
+            field_text += f"{indent}  Items Details:\n"
+            for name, type_ in element_type.__annotations__.items():
+                field_text += generate_field_text(name, type_, element_type, depth + 2)
     elif is_union_type(field_type):
         element_types = get_args(field_type)
         types = []
