@@ -243,7 +243,7 @@ class UnionModel(BaseModel):
 class NestedUnionModel(BaseModel):
     """Model with nested union field."""
 
-    value: Union[str, int]
+    value: Union[A, B]
 
 
 class NestedDiscriminatedUnionModel(BaseModel):
@@ -414,6 +414,7 @@ def test_nested_union_model():
     <NestedUnionModel>
     <value>
     <A>
+    <type>a</type>
     <a_value>42</a_value>
     </A>
     </value>
@@ -428,6 +429,7 @@ def test_nested_discriminated_union_model():
     <NestedDiscriminatedUnionModel>
     <value>
     <A>
+    <type>a</type>
     <a_value>42</a_value>
     </A>
     </value>
