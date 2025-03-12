@@ -51,6 +51,11 @@ class TypeKind(str, Enum):
     NONE = "none"
 
 
+def safe_type_name(typ: Any) -> str:
+    """Safely get a type name even for objects without __name__ attribute."""
+    return getattr(typ, "__name__", str(typ))
+
+
 class TypeInfo:
     """
     Core type analysis class that extracts and organizes type metadata.
@@ -85,6 +90,8 @@ class TypeInfo:
         """Determine the kind of type structure."""
         # Handle Annotated types by unwrapping
         if self.origin is Annotated:
+            if not self.args:
+                raise ValueError(f"Annotated type {self.python_type} has no arguments")
             # Create a new TypeInfo for the underlying type
             return TypeInfo(self.args[0], self.field_name, self.parent, self.registry).kind
         
@@ -126,6 +133,14 @@ class TypeInfo:
     
     def _process_element_types(self):
         """Process element types for container and union types."""
+        # Handle Annotated types specially by extracting the base type
+        if self.origin is Annotated and self.args:
+            base_type = self.args[0]
+            # Create TypeInfo for the base type, which might itself be a container
+            base_info = TypeInfo(base_type, self.field_name, self.parent, self.registry)
+            self.element_types = base_info.element_types
+            return
+            
         if self.kind == TypeKind.LIST or self.kind == TypeKind.SET:
             if self.args:
                 element_type = self.args[0]
@@ -174,8 +189,14 @@ class TypeInfo:
     
     def get_type_name(self) -> str:
         """Get a descriptive string for this type."""
+        # Handle Annotated types by extracting the base type
+        if self.origin is Annotated and self.args:
+            base_type = self.args[0]
+            # Use the base type's name directly
+            return TypeInfo(base_type, self.field_name).get_type_name()
+            
         if self.kind == TypeKind.PRIMITIVE:
-            return self.python_type.__name__
+            return safe_type_name(self.python_type)
         
         elif self.kind == TypeKind.LIST:
             element_type = self.element_types[0] if self.element_types else TypeInfo(Any)
@@ -201,10 +222,10 @@ class TypeInfo:
             return " or ".join(element.get_type_name() for element in self.element_types)
             
         elif self.kind == TypeKind.ENUM:
-            return f"enum {self.python_type.__name__}"
+            return f"enum {safe_type_name(self.python_type)}"
             
         elif self.kind == TypeKind.MODEL:
-            return self.python_type.__name__
+            return safe_type_name(self.python_type)
             
         elif self.kind == TypeKind.LITERAL:
             literal_values = ", ".join(repr(arg) for arg in self.args)
@@ -216,7 +237,7 @@ class TypeInfo:
         elif self.kind == TypeKind.ANY:
             return "Any"
             
-        return f"custom-{self.python_type.__name__}"
+        return f"custom-{safe_type_name(self.python_type)}"
 
 
 class DocumentationGenerator:
