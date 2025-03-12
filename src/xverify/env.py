@@ -4,8 +4,7 @@ from xml.etree.ElementTree import ParseError
 from vllm.sampling_params import GuidedDecodingParams, SamplingParams
 
 from .tool_use import run_tools
-from .xml_gbnf import generate_gbnf_grammar_and_documentation
-from .xml_parse import parse_xml_to_model
+from .xml import generate_gbnf_grammar_and_documentation, parse_xml_to_model
 
 
 class Env:
