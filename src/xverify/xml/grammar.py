@@ -29,6 +29,19 @@ from pydantic import BaseModel, create_model
 from types import GenericAlias
 
 
+def is_union_type(field_type) -> bool:
+    """
+    Check if a field type is any kind of union type (typing.Union or native | union).
+    
+    Args:
+        field_type: The type to check.
+        
+    Returns:
+        bool: True if the type is a union type, False otherwise.
+    """
+    return get_origin(field_type) is Union or "UnionType" in str(type(field_type))
+
+
 class PydanticDataType(Enum):
     """
     Defines the data types supported by the grammar_generator.
@@ -87,7 +100,7 @@ def map_pydantic_type_to_gbnf(pydantic_type: type[Any]) -> str:
     elif get_origin(pydantic_type) is set:
         element_type = get_args(pydantic_type)[0]
         return f"{map_pydantic_type_to_gbnf(element_type)}-set"
-    elif get_origin(pydantic_type) is Union:
+    elif is_union_type(pydantic_type):
         union_types = get_args(pydantic_type)
         union_rules = [map_pydantic_type_to_gbnf(ut) for ut in union_types]
         return f"union-{'-or-'.join(union_rules)}"
@@ -939,7 +952,7 @@ def generate_field_markdown(
             field_text += ":\n"
         else:
             field_text += "\n"
-    elif get_origin(field_type) is Union:
+    elif is_union_type(field_type):
         element_types = get_args(field_type)
         types = []
         for element_type in element_types:
@@ -1104,7 +1117,7 @@ def generate_field_text(
             field_text += ":\n"
         else:
             field_text += "\n"
-    elif get_origin(field_type) is Union:
+    elif is_union_type(field_type):
         element_types = get_args(field_type)
         types = []
         for element_type in element_types:
