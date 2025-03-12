@@ -728,7 +728,12 @@ class XMLGrammarGenerator:
 
         # Handle Literal types
         elif type_info.kind == TypeKind.LITERAL:
-            rule_name = f"{field_name}-literal"
+            # Use a more specific rule name including parent info if available
+            parent_prefix = ""
+            if type_info.parent and type_info.parent.kind == TypeKind.MODEL:
+                parent_prefix = f"{type_info.parent.python_type.__name__}-"
+            rule_name = f"{parent_prefix}{field_name}-literal"
+
             literal_values = [f'nl "{value}"' for value in type_info.args]
             literal_pattern = " | ".join(literal_values)
             literal_rule = GrammarRule(rule_name, literal_pattern)
