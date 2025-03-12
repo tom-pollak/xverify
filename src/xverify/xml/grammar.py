@@ -864,7 +864,7 @@ def generate_markdown_documentation(
                     element_type = get_args(field_type)[0]
                     if isclass(element_type) and issubclass(element_type, BaseModel):
                         pyd_models.append((element_type, False))
-                if isinstance(get_origin(field_type), Union):
+                if get_origin(field_type) is Union:
                     element_types = get_args(field_type)
                     for element_type in element_types:
                         if isclass(element_type) and issubclass(
@@ -927,7 +927,7 @@ def generate_field_markdown(
             field_text += ":\n"
         else:
             field_text += "\n"
-    elif isinstance(get_origin(field_type), Union):
+    elif get_origin(field_type) is Union:
         element_types = get_args(field_type)
         types = []
         for element_type in element_types:
@@ -1024,7 +1024,7 @@ def generate_text_documentation(
                     element_type = get_args(field_type)[0]
                     if isclass(element_type) and issubclass(element_type, BaseModel):
                         pyd_models.append((element_type, False))
-                if isinstance(get_origin(field_type), Union):
+                if get_origin(field_type) is Union:
                     element_types = get_args(field_type)
                     for element_type in element_types:
                         if isclass(element_type) and issubclass(
@@ -1092,7 +1092,7 @@ def generate_field_text(
             field_text += ":\n"
         else:
             field_text += "\n"
-    elif isinstance(get_origin(field_type), Union):
+    elif get_origin(field_type) is Union:
         element_types = get_args(field_type)
         types = []
         for element_type in element_types:
