@@ -100,9 +100,10 @@ def _tool2model(tool: Callable, discriminator: str | None) -> Type[BaseTool]:
         fields[discriminator] = (Literal[name], Field(..., description="Function to call")) # type: ignore
     fields.update({
         name: (
-            info["anno"],  # parameter type
+            # parameter type
+            info["anno"], # type: ignore
             Field(
-                default=(... if info["default"] is inspect._empty else info["default"]),
+                default=(... if info["default"] is inspect._empty else info["default"]),  # type: ignore
                 description=info.get("docment", None),  # doc for parameter
             ),
         )
