@@ -587,14 +587,14 @@ class XMLGrammarGenerator:
         # Add dependencies
         for model in self.models:
             models_rule.add_dependency(model.__name__)
-            self._process_model(model)
+            self._process_model(model, root=True)
 
         self.rule_set.add_rule(models_rule)
 
         # Return the complete grammar
         return str(self.rule_set)
 
-    def _process_model(self, model: Type[BaseModel]) -> None:
+    def _process_model(self, model: Type[BaseModel], root: bool = False) -> None:
         """Process a single model, generating rules for it and its fields."""
         if model in self.processed_types:
             return
@@ -606,7 +606,7 @@ class XMLGrammarGenerator:
         field_types = model_info.get_field_types()
 
         # Create the model rule pattern
-        pattern_parts = [rf'nl "<{model.__name__}>"']
+        pattern_parts = [rf'{"" if root else "nl"} "<{model.__name__}>"']
 
         for field_name, field_type in field_types.items():
             # Add this field to the model pattern

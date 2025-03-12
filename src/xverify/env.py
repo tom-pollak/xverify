@@ -30,10 +30,12 @@ class Env:
         self,
         model: type[BaseModel],
         schema: Literal["json", "xml"] = "xml",
+        tool_response_func: Callable = run_tools,
         max_steps: int = 10,
     ):
         self.model = model
         self.schema = schema
+        self.tool_response_func = tool_response_func
         self.max_steps = max_steps
         self.gbnf, self.doc = generate_gbnf_grammar_and_documentation([self.model])
 
@@ -61,7 +63,7 @@ class Env:
         last_message = trajectory[-1]
         assert last_message["role"] == "assistant", "should be assistant"
         parsed = self.parse(last_message["content"])
-        return run_tools(parsed) if parsed is not None else None
+        return self.tool_response_func(parsed) if parsed is not None else None
 
     def is_completed(self, trajectory: list[dict]) -> bool:
         return len(self.contents(trajectory, role="assistant")) >= self.max_steps
