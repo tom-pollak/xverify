@@ -369,21 +369,11 @@ class DocumentationGenerator:
         if type_info.kind == TypeKind.LIST or type_info.kind == TypeKind.SET:
             if type_info.element_types:
                 element_type = type_info.element_types[0]
-                # For model elements, show their structure
+                # For model elements, register them for top-level documentation
                 if element_type.kind == TypeKind.MODEL:
-                    lines.append(f"{indent}    Items Details:")
-                    nested_model = element_type.python_type
-                    nested_model_type_info = TypeInfo(nested_model, registry=self.type_registry)
-                    field_types = nested_model_type_info.get_field_types()
+                    # Just register for top-level documentation, no need for redundant info
+                    self.type_registry[element_type.python_type.__name__] = element_type
                     
-                    for nested_field_name, nested_field_type in field_types.items():
-                        nested_doc = self._document_field(
-                            nested_field_name, 
-                            nested_field_type, 
-                            nested_model, 
-                            depth + 2
-                        )
-                        lines.append(nested_doc)
                 # For union elements (like ToolUse[a, b]), describe the options
                 elif element_type.kind == TypeKind.UNION:
                     lines.append(f"{indent}    Items can be one of:")
@@ -404,22 +394,11 @@ class DocumentationGenerator:
         
         # Document model fields directly
         elif type_info.kind == TypeKind.MODEL:
-            lines.append(f"{indent}    Details:")
+            # Don't include details here, just register for top-level docs
+            # This ensures that models are documented at the top level
             nested_model = type_info.python_type
-            nested_model_type_info = TypeInfo(nested_model, registry=self.type_registry)
-            field_types = nested_model_type_info.get_field_types()
-            
-            for nested_field_name, nested_field_type in field_types.items():
-                nested_doc = self._document_field(
-                    nested_field_name, 
-                    nested_field_type, 
-                    nested_model, 
-                    depth + 2
-                )
-                lines.append(nested_doc)
-            
-            # Register this model for later documentation
             self.type_registry[nested_model.__name__] = type_info
+            # No need to add redundant type information here
         
         return "\n".join(lines)
 
