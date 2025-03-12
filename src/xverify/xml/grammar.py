@@ -367,7 +367,7 @@ def generate_gbnf_rule_for_type(
         enum_rule = f"{model_name}{field_name} ::= {' | '.join(enum_values)}"
         rules.append(enum_rule)
         gbnf_type, rules = model_name + field_name, rules
-    elif isinstance(get_origin(field_type), list):  # Array
+    elif get_origin(field_type) is list:  # Array
         element_type = get_args(field_type)[0]
         element_rule_name, additional_rules = generate_gbnf_rule_for_type(
             model_name,
@@ -378,13 +378,12 @@ def generate_gbnf_rule_for_type(
             created_rules,
         )
         rules.extend(additional_rules)
+        # Define a proper list rule
         array_rule = f"""{model_name}{field_name} ::= nl "<items>" ("<item>" {element_rule_name} nl "</item>")* nl "</items>" """
         rules.append(array_rule)
         gbnf_type, rules = model_name + field_name, rules
 
-    elif isinstance(get_origin(field_type), set) or isinstance(
-        field_type, set
-    ):  # Array
+    elif get_origin(field_type) is set:  # Set as Array
         element_type = get_args(field_type)[0]
         element_rule_name, additional_rules = generate_gbnf_rule_for_type(
             model_name,
@@ -395,6 +394,7 @@ def generate_gbnf_rule_for_type(
             created_rules,
         )
         rules.extend(additional_rules)
+        # Define a proper set rule (similar to list)
         array_rule = f"""{model_name}{field_name} ::= nl "<items>" ("<item>" {element_rule_name} nl "</item>")* nl "</items>" """
         rules.append(array_rule)
         gbnf_type, rules = model_name + field_name, rules
