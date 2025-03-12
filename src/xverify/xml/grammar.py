@@ -644,8 +644,8 @@ class XMLGrammarGenerator:
                 )
                 rule_name = f"{field_name}-list"
 
-                # Create list rule
-                list_pattern = rf'nl "<items>" ("<item>" {element_rule_name} nl "</item>")* nl "</items>"'
+                # Create list rule with better tag names
+                list_pattern = rf'nl "<list>" ("<list-item>" {element_rule_name} nl "</list-item>")* nl "</list>"'
                 list_rule = GrammarRule(rule_name, list_pattern)
                 list_rule.add_dependency(element_rule_name)
                 self.rule_set.add_rule(list_rule)
@@ -662,8 +662,8 @@ class XMLGrammarGenerator:
                 )
                 rule_name = f"{field_name}-set"
 
-                # Create set rule (similar to list)
-                set_pattern = rf'nl "<items>" ("<item>" {element_rule_name} nl "</item>")* nl "</items>"'
+                # Create set rule with better tag names
+                set_pattern = rf'nl "<set>" ("<set-item>" {element_rule_name} nl "</set-item>")* nl "</set>"'
                 set_rule = GrammarRule(rule_name, set_pattern)
                 set_rule.add_dependency(element_rule_name)
                 self.rule_set.add_rule(set_rule)
@@ -684,8 +684,8 @@ class XMLGrammarGenerator:
                 )
                 rule_name = f"{field_name}-dict"
 
-                # Create dict rule
-                dict_pattern = rf'nl "<dictionary>" ("<entry>" nl "<key>" {key_rule_name} nl "</key>" nl "<value>" {value_rule_name} nl "</value>" nl "</entry>")* nl "</dictionary>"'
+                # Create dict rule with better tag names
+                dict_pattern = rf'nl "<dict>" ("<dict-entry>" nl "<key>" {key_rule_name} nl "</key>" nl "<value>" {value_rule_name} nl "</value>" nl "</dict-entry>")* nl "</dict>"'
                 dict_rule = GrammarRule(rule_name, dict_pattern)
                 dict_rule.add_dependency(key_rule_name)
                 dict_rule.add_dependency(value_rule_name)
