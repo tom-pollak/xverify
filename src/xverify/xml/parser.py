@@ -7,7 +7,7 @@ __all__ = ["parse_xml_to_model"]
 
 def parse_xml_to_model(model: Type[BaseModel], xml_text: str) -> BaseModel:
     parsed = xmltodict.parse(xml_text, force_list=("items",))
-    model_names = _get_model_names(model)
+    model_names = {"items", *(_get_model_names(model))}
     squeezed = _squeeze_model_keys(parsed, model_names)
     return model.model_validate(squeezed)
 
@@ -43,5 +43,7 @@ def _squeeze_model_keys(data, model_names: set[str]):
         # Otherwise, process each key-value pair.
         return {k: _squeeze_model_keys(v, model_names) for k, v in data.items()}
     elif isinstance(data, list):
+        if data == [None]:
+            return []
         return [_squeeze_model_keys(item, model_names) for item in data]
     return data
