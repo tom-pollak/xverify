@@ -16,9 +16,9 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/tompollak/xverify"
-"Repository" = "https://github.com/tompollak/xverify"
-"Issues" = "https://github.com/tompollak/xverify/issues"
+"Homepage" = "https://github.com/tom-pollak/xverify"
+"Repository" = "https://github.com/tom-pollak/xverify"
+"Issues" = "https://github.com/tom-pollak/xverify/issues"
 
 [build-system]
 requires = ["hatchling"]
