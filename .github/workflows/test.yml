@@ -1,17 +1,14 @@
-name: Publish Python Package
+name: Run Tests
 
 on:
-  release:
-    types: [published]
-
-permissions:
-  contents: read
-  id-token: write
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
-  build-and-publish:
+  test:
     runs-on: ubuntu-latest
-    environment: pypi-publish
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,16 +23,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run tests
+      - name: Install dependencies and run tests
         run: |
           uv venv
           uv sync --extra tools
           uv run pytest
-
-      - name: Build package with uv
-        run: |
-          uv pip install --upgrade build
-          uv build --no-sources  # Ensures correctness
-
-      - name: Publish package to PyPI
-        run: uv publish

@@ -27,7 +27,6 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = ["jupyter>=1.1.1", "pytest-cov>=6.0.0", "pytest>=8.3.5"]
 
-
 [project.optional-dependencies]
 tools = ["duckduckgo-search>=7.5.1"]
 
