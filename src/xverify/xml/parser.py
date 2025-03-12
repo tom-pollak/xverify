@@ -12,11 +12,18 @@ def parse_xml_to_model(model: Type[BaseModel], xml_text: str) -> BaseModel:
 
     # Include all container tags in model names for handling
     model_names = {
-        "list", "set", "dict",
-        "list-item", "set-item", "dict-entry",
-        *(_get_model_names(model))
+        "list",
+        "set",
+        "dict",
+        "list-item",
+        "set-item",  # Removed "dict-entry" as we now use direct key-value pairs
+        *(_get_model_names(model)),
     }
 
+    # First process dictionaries to handle alternating key-value pairs
+    # processed = _process_dicts(parsed)
+
+    # Then squeeze model keys
     squeezed = _squeeze_model_keys(parsed, model_names)
     return model.model_validate(squeezed)
 
@@ -45,12 +52,16 @@ def _squeeze_model_keys(data, model_names: set[str]):
     """
     if isinstance(data, dict):
         # Squeeze if the dict has a single key that is a BaseModel name.
-        if len(data) == 1:
+        if "dict" in data:
+            assert len(data) == 1
+            # dicts are represented as {"key": ["key1", "key2"], "value": ["value1", "value2"]}
+            return dict(zip(*data["dict"].values()))
+        elif len(data) == 1:
             key, value = next(iter(data.items()))
             if key in model_names:
                 return _squeeze_model_keys(value, model_names)
-        # Otherwise, process each key-value pair.
-        return {k: _squeeze_model_keys(v, model_names) for k, v in data.items()}
+        else:
+            return {k: _squeeze_model_keys(v, model_names) for k, v in data.items()}
     elif isinstance(data, list):
         if data == [None]:
             return []
