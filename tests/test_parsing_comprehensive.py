@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 import xmltodict
 from xml.parsers.expat import ExpatError as ParseError
 
-from xverify import Env, ToolUse
+from xverify import Env, XMLToolUse
 from xverify.tools import calculator, search
 
 
@@ -235,14 +235,14 @@ class ToolUseModel(BaseModel):
     """Model with tool use."""
 
     task: str
-    tool: ToolUse[calculator, search]
+    tool: XMLToolUse[calculator, search]
 
 
 class MultiToolUseModel(BaseModel):
     """Model with multiple tool uses."""
 
     task: str
-    tools: List[ToolUse[calculator, search]]
+    tools: List[XMLToolUse[calculator, search]]
 
 
 # Test Cases - Complex Types
@@ -264,7 +264,7 @@ class ComplexModel(BaseModel):
     status: Status
     items: List[RecursiveItem]
     metadata: Dict[str, Any] = {}
-    tools: Optional[List[ToolUse[calculator, search]]] = None
+    tools: Optional[List[XMLToolUse[calculator, search]]] = None
 
 
 # Tests for basic models
@@ -394,7 +394,6 @@ def test_tool_use_model():
     <task>Calculate the result</task>
     <tool>
     <calculator>
-    <tool_name>calculator</tool_name>
     <expression>2 + 2</expression>
     </calculator>
     </tool>
@@ -412,13 +411,11 @@ def test_multi_tool_use_model():
     <list>
     <list-item>
     <calculator>
-    <tool_name>calculator</tool_name>
     <expression>2 + 2</expression>
     </calculator>
     </list-item>
     <list-item>
     <search>
-    <tool_name>search</tool_name>
     <query>python programming</query>
     <num_results>3</num_results>
     </search>
@@ -499,7 +496,6 @@ def test_complex_model():
     <list>
     <list-item>
     <calculator>
-    <tool_name>calculator</tool_name>
     <expression>2 * 3.14</expression>
     </calculator>
     </list-item>

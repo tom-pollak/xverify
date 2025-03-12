@@ -6,7 +6,7 @@ from typing import Annotated, Callable, Literal, Tuple, Type, Union
 from fastcore.docments import docments
 from pydantic import BaseModel, Field, create_model
 
-__all__ = ["ToolUse", "run_tools", "BaseTool"]
+__all__ = ["ToolUse", "run_tools", "BaseTool", "ToolUse", "JSONToolUse", "XMLToolUse"]
 
 
 class ToolUse:
@@ -24,19 +24,28 @@ class ToolUse:
     ```
     """
 
+    @abstractmethod
+    def run_tool(self): ...  # see BaseTool
+
+class JSONToolUse(ToolUse):
     @classmethod
     def __class_getitem__(cls, tools: tuple[Callable] | Callable):
         # multiple funcs
         if isinstance(tools, Tuple):
             return Annotated[
-                Union[*map(_tool2model, tools)],  # type: ignore
-                Field(discriminator="tool_name"),
+                Union[*[_tool2model(tool, discriminator="tool_name") for tool in tools]],  # type: ignore
             ]
         # single func
-        return _tool2model(tools)
+        return _tool2model(tools, discriminator="tool_name")
 
-    @abstractmethod
-    def run_tool(self): ...  # see BaseTool
+class XMLToolUse(ToolUse):
+    @classmethod
+    def __class_getitem__(cls, tools: tuple[Callable] | Callable):
+        # multiple funcs
+        if isinstance(tools, Tuple):
+            return Union[*[_tool2model(tool, discriminator=None) for tool in tools]] # type: ignore
+        # single func
+        return _tool2model(tools, discriminator=None)
 
 
 def run_tools(model: BaseModel) -> dict | None:
@@ -62,12 +71,12 @@ class BaseTool(BaseModel):
         return self.__class__._tool_func(**args)
 
 
-def _tool2model(tool: Callable) -> Type[BaseTool]:
+def _tool2model(tool: Callable, discriminator: str | None) -> Type[BaseTool]:
     """Convert a function signature to a Pydantic model with documentation"""
     assert isinstance(tool, Callable), "tool must be a callable"
     name = tool.__name__
     docs = docments(tool, full=True)
-    assert "tool_name" not in docs, "tool_name is reserved for the discriminator"
+    assert discriminator not in docs, f"{discriminator} is reserved for the discriminator"
 
     # Create docstring -- add return info if exists
     docstring = tool.__doc__ or ""
@@ -79,9 +88,9 @@ def _tool2model(tool: Callable) -> Type[BaseTool]:
             docstring += f" - {return_doc_str}"
 
     # Build input parameters
-    fields: dict = {
-        "tool_name": (Literal[name], Field(..., description="Function to call")) # type: ignore
-    }
+    fields: dict = {}
+    if discriminator is not None:
+        fields[discriminator] = (Literal[name], Field(..., description="Function to call")) # type: ignore
     fields.update({
         name: (
             info["anno"],  # parameter type
@@ -105,7 +114,7 @@ def _run_nested_tools(item):
     match item:
         # If the item is a tool, run it and return its output keyed by the tool name.
         case BaseTool() as tool:
-            return {tool.tool_name: tool.run_tool()}  # type: ignore
+            return {tool.discriminator: tool.run_tool()}  # type: ignore
 
         # For any other BaseModel, process its fields recursively and filter out empty results.
         case BaseModel():
