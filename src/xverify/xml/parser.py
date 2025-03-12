@@ -7,8 +7,9 @@ __all__ = ["parse_xml_to_model"]
 
 def parse_xml_to_model(model: Type[BaseModel], xml_text: str) -> BaseModel:
     # Force various container tags to be parsed as lists
-    # force_list = ("list", "set", "dict-entry")
-    parsed = xmltodict.parse(xml_text)
+    parsed = xmltodict.parse(
+        xml_text, force_list=("list-item", "set-item", "key-item", "value-item")
+    )
 
     # Include all container tags in model names for handling
     model_names = {
@@ -16,7 +17,9 @@ def parse_xml_to_model(model: Type[BaseModel], xml_text: str) -> BaseModel:
         "set",
         "dict",
         "list-item",
-        "set-item",  # Removed "dict-entry" as we now use direct key-value pairs
+        "set-item",
+        "key-item",
+        "value-item",
         *(_get_model_names(model)),
     }
 
@@ -28,14 +31,38 @@ def parse_xml_to_model(model: Type[BaseModel], xml_text: str) -> BaseModel:
     return model.model_validate(squeezed)
 
 
-def _iter_nested_models(item) -> Generator[type[BaseModel], None, None]:
+def _iter_nested_models(
+    item, seen_models=None
+) -> Generator[type[BaseModel], None, None]:
+    """
+    Recursively iterate through nested models, avoiding infinite recursion.
+
+    Args:
+        item: The type or model to process
+        seen_models: Set of model types already processed to avoid recursion
+    """
+    if seen_models is None:
+        seen_models = set()
+
+    # For models, process once and skip if already seen
     if isinstance(item, type) and issubclass(item, BaseModel):
-        yield item  # Yield the model itself.
+        # Skip if we've already seen this model to avoid recursion
+        if item in seen_models:
+            return
+
+        # Mark as seen before processing fields to prevent recursion
+        seen_models.add(item)
+
+        # Yield the model itself
+        yield item
+
+        # Process each field
         for sub_field in item.model_fields.values():
-            yield from _iter_nested_models(sub_field.annotation)
+            yield from _iter_nested_models(sub_field.annotation, seen_models)
     else:
+        # Process type arguments (for containers, unions, etc.)
         for arg in get_args(item):
-            yield from _iter_nested_models(arg)
+            yield from _iter_nested_models(arg, seen_models)
 
 
 def _get_model_names(model: Type[BaseModel]) -> set[str]:

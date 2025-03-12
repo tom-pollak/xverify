@@ -685,7 +685,7 @@ class XMLGrammarGenerator:
                 rule_name = f"{field_name}-dict"
 
                 # Create dict rule with direct key-value pairs (no dict-entry tags)
-                dict_pattern = rf'nl "<dict>" (nl "<key>" {key_rule_name} nl "</key>" nl "<value>" {value_rule_name} nl "</value>")* nl "</dict>"'
+                dict_pattern = rf'nl "<dict>" (nl "<key-item>" {key_rule_name} nl "</key-item>" nl "<value-item>" {value_rule_name} nl "</value-item>")* nl "</dict>"'
                 dict_rule = GrammarRule(rule_name, dict_pattern)
                 dict_rule.add_dependency(key_rule_name)
                 dict_rule.add_dependency(value_rule_name)

@@ -36,7 +36,9 @@ class MockLLM:
                 return [MockOutput(response)]
 
         # Default simple response if no specific match
-        return [MockOutput("<SimpleModel>\n<value>default response</value>\n</SimpleModel>")]
+        return [
+            MockOutput("<SimpleModel>\n<value>default response</value>\n</SimpleModel>")
+        ]
 
 
 class MockOutput:
@@ -88,11 +90,17 @@ def run_model_parsing_test(model_cls, xml_response=None, should_parse=True):
     try:
         parsed = env.parse(output_text)
         if should_parse:
-            assert parsed is not None, f"Failed to parse valid output for {model_cls.__name__}"
+            assert (
+                parsed is not None
+            ), f"Failed to parse valid output for {model_cls.__name__}"
             # Validate the parsed model matches the expected class
-            assert isinstance(parsed, model_cls), f"Parsed result is not an instance of {model_cls.__name__}"
+            assert isinstance(
+                parsed, model_cls
+            ), f"Parsed result is not an instance of {model_cls.__name__}"
         else:
-            assert parsed is None, f"Incorrectly parsed invalid output for {model_cls.__name__}"
+            assert (
+                parsed is None
+            ), f"Incorrectly parsed invalid output for {model_cls.__name__}"
     except Exception as e:
         if should_parse:
             pytest.fail(f"Error parsing output for {model_cls.__name__}: {str(e)}")
@@ -304,7 +312,6 @@ def test_nested_model():
 # Tests for container models
 def test_list_model():
     """Test model with list fields."""
-    # Using the new list format with multiple items
     xml = """
     <ListModel>
     <items>
@@ -323,6 +330,22 @@ def test_list_model():
     </ListModel>
     """
     run_model_parsing_test(ListModel, xml)
+
+    xml2 = """
+    <ListModel>
+    <items>
+    <list>
+    <list-item>Item 1</list-item>
+    </list>
+    </items>
+    <numbers>
+    <list>
+    <list-item>43</list-item>
+    </list>
+    </numbers>
+    </ListModel>
+    """
+    run_model_parsing_test(ListModel, xml2)
 
 
 def test_dict_model():
