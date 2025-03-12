@@ -34,6 +34,7 @@ class JSONToolUse(ToolUse):
         if isinstance(tools, Tuple):
             return Annotated[
                 Union[*[_tool2model(tool, discriminator="tool_name") for tool in tools]],  # type: ignore
+                Field(..., discriminator="tool_name"),
             ]
         # single func
         return _tool2model(tools, discriminator="tool_name")
@@ -59,15 +60,21 @@ class BaseTool(BaseModel):
     """
     Base class for tools. After creating a tool model, you can call it with `run`.
     """
+    # model_config = {
+    #     "extra": "forbid"  # no extra fields
+    # }
 
     @classmethod
     def __init_subclass__(cls, **kwargs):
         cls._tool_func = kwargs.pop("_tool_func")  # type: ignore
+        cls._tool_name = cls._tool_func.__name__
         super().__init_subclass__(**kwargs)
 
     def run_tool(self):
         args = self.model_dump()
-        del args["tool_name"]  # tool_name is used as discriminator, not passed as arg
+        # tool_name is used as discriminator, not passed as arg
+        if "tool_name" in args:
+            del args["tool_name"]
         return self.__class__._tool_func(**args)
 
 
@@ -114,7 +121,7 @@ def _run_nested_tools(item):
     match item:
         # If the item is a tool, run it and return its output keyed by the tool name.
         case BaseTool() as tool:
-            return {tool.discriminator: tool.run_tool()}  # type: ignore
+            return {tool._tool_name: tool.run_tool()}  # type: ignore
 
         # For any other BaseModel, process its fields recursively and filter out empty results.
         case BaseModel():
