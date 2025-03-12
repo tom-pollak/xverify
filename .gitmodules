@@ -1,3 +1,0 @@
-[submodule "src/pydantic-gbnf-grammar-generator"]
-	path = src/pydantic-gbnf-grammar-generator
-	url = git@github.com:tom-pollak/pydantic-gbnf-grammar-generator.git
