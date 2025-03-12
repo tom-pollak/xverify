@@ -6,7 +6,7 @@ __all__ = ["parse_xml_to_model"]
 
 
 def parse_xml_to_model(model: Type[BaseModel], xml_text: str) -> BaseModel:
-    parsed = xmltodict.parse(xml_text)
+    parsed = xmltodict.parse(xml_text, force_list=("items",))
     model_names = _get_model_names(model)
     squeezed = _squeeze_model_keys(parsed, model_names)
     return model.model_validate(squeezed)

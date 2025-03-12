@@ -68,6 +68,13 @@ class Env:
     def parse_reward_func(self, reward_weight: float = 1.0) -> Callable:
         """
         Reward function that checks if the output is a valid structured output.
+
+        The only way the model does not generate structured output (and fails the check)
+        is if it generates a string longer than the max number of tokens.
+
+        I don't think this is strictly necessary, since if we base all other rewards on
+        the structured output, then the model will generate valid outputs to get any reward
+        at all. And it has to try quite hard _not_ to generate valid outputs.
         """
 
         def reward_func(completions, **kwargs) -> list[float]:
@@ -82,15 +89,25 @@ class Env:
 
         return reward_func
 
-    def guided_decoding_args(self, **kwargs):
+    def guided_decoding_params(self, **kwargs) -> GuidedDecodingParams:
+        """
+        Wraps GuidedDecodingParams
+
+        - Sets json and grammar based on schema
+        """
         assert "json" not in kwargs, "Parser handles json"
         assert "grammar" not in kwargs, "Parser handles grammar"
-        return GuidedDecodingParams.from_optional(
+        return GuidedDecodingParams(
             json=self.model.model_json_schema() if self.schema == "json" else None,
             grammar=self.gbnf if self.schema == "xml" else None,
             **kwargs,
         )
 
-    def sampling_params(self, **kwargs):
-        guided_decoding = self.guided_decoding_args(**kwargs.pop("guided_decoding", {}))
+    def sampling_params(self, **kwargs) -> SamplingParams:
+        """
+        Wraps SamplingParams
+        """
+        guided_decoding = self.guided_decoding_params(
+            **kwargs.pop("guided_decoding", {})
+        )
         return SamplingParams(guided_decoding=guided_decoding, **kwargs)
