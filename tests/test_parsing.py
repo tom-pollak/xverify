@@ -7,7 +7,7 @@ to generate parseable XML outputs for a wide variety of model structures.
 """
 
 import pytest
-from typing import Optional, List, Dict, Union, Literal, Any
+from typing import Optional, List, Dict, Union, Literal, Any, Annotated
 from enum import Enum
 from pydantic import BaseModel, Field
 
@@ -174,6 +174,16 @@ def generate_simple_value(type_hint):
         return "sample value"
 
 
+class A(BaseModel):
+    type: Literal["a"]
+    a_value: int
+
+
+class B(BaseModel):
+    type: Literal["b"]
+    b_value: str
+
+
 # Test Cases - Basic Types
 class SimpleModel(BaseModel):
     """A simple model with basic field types."""
@@ -228,6 +238,18 @@ class UnionModel(BaseModel):
     value: Union[str, int]
     status: Status
     mode: Literal["simple", "advanced"]
+
+
+class NestedUnionModel(BaseModel):
+    """Model with nested union field."""
+
+    value: Union[str, int]
+
+
+class NestedDiscriminatedUnionModel(BaseModel):
+    """Model with nested discriminated union field."""
+
+    value: Annotated[Union[A, B], Field(discriminator="type")]
 
 
 # Test Cases - Tool Use
@@ -384,6 +406,23 @@ def test_union_model():
     </UnionModel>
     """
     run_model_parsing_test(UnionModel, xml)
+
+
+
+
+
+def test_nested_union_model():
+    """Test model with nested union field."""
+    xml = """
+    <NestedUnionModel>
+    <value>
+    <A>
+    <a_value>42</a_value>
+    </A>
+    </value>
+    </NestedUnionModel>
+    """
+    run_model_parsing_test(NestedUnionModel, xml)
 
 
 # Tests for tool use models
