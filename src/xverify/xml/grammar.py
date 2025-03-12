@@ -387,7 +387,9 @@ class DocumentationGenerator:
 
         # Process additional models found while documenting this one
         additional_models_docs = []
-        for model_type in self.type_registry.values():
+        # Make a copy of the registry to avoid "dictionary changed during iteration" error
+        registry_copy = list(self.type_registry.values())
+        for model_type in registry_copy:
             if (
                 model_type.kind == TypeKind.MODEL
                 and model_type.python_type not in self.processed_models
