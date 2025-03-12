@@ -606,7 +606,7 @@ class XMLGrammarGenerator:
         field_types = model_info.get_field_types()
 
         # Create the model rule pattern
-        pattern_parts = [rf'nl "<{model.__name__}>" nl']
+        pattern_parts = [rf'nl "<{model.__name__}>"']
 
         for field_name, field_type in field_types.items():
             # Add this field to the model pattern
