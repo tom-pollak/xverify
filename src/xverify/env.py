@@ -1,7 +1,8 @@
 from typing import Callable, Literal
+import warnings
 from pydantic import BaseModel, ValidationError
 from xml.etree.ElementTree import ParseError
-from vllm.sampling_params import GuidedDecodingParams, SamplingParams
+from vllm.sampling_params import GuidedDecodingParams, SamplingParams, RequestOutputKind
 
 from .tool_use import run_tools
 from .xml import generate_gbnf_grammar_and_documentation, parse_xml_to_model
@@ -103,11 +104,21 @@ class Env:
             **kwargs,
         )
 
-    def sampling_params(self, **kwargs) -> SamplingParams:
+    def sampling_params(self, max_tokens: int = 512, **kwargs) -> SamplingParams:
         """
         Wraps SamplingParams
         """
         guided_decoding = self.guided_decoding_params(
             **kwargs.pop("guided_decoding", {})
         )
-        return SamplingParams(guided_decoding=guided_decoding, **kwargs)
+        output_kind = kwargs.pop("output_kind", RequestOutputKind.FINAL_ONLY)
+        if output_kind == RequestOutputKind.CUMULATIVE:
+            warnings.warn(
+                "output_kind=CUMULATIVE may result in slow generation. Recommended: output_kind=FINAL_ONLY"
+            )
+        return SamplingParams(
+            max_tokens=max_tokens,
+            guided_decoding=guided_decoding,
+            output_kind=output_kind,
+            **kwargs,
+        )
