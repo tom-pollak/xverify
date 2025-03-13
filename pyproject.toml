@@ -36,7 +36,6 @@ tools = [
     "scipy>=1.15.2",
     "sympy>=1.13.1",
 ]
-
 flash-attn = ["flash-attn"]
 
 # until new trl release
@@ -50,3 +49,21 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 no-build-isolation-package = ["flash-attn"]
+
+[tool.ruff]
+line-length = 88
+# pyflakes, pycodestyle, isort
+select = ["F", "E", "W", "I001"]
+
+[tool.ruff.lint]
+ignore = [
+    "E741",
+    "F401",
+    "F403",
+    "F405",
+    "F722",
+    "E731",
+    "E402",
+    "E701",
+    "E501",
+]
