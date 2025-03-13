@@ -58,12 +58,6 @@ class GuidedSchema:
                 raise e
             return None
 
-    def env_response(self, trajectory: list[dict]) -> dict | None:
-        last_message = trajectory[-1]
-        assert last_message["role"] == "assistant", "should be assistant"
-        parsed = self.parse(last_message["content"])
-        return self.tool_response_func(parsed) if parsed is not None else None
-
     def is_completed(self, trajectory: list[dict]) -> bool:
         return len(self.contents(trajectory, role="assistant")) >= self.max_steps
 
@@ -91,36 +85,39 @@ class GuidedSchema:
 
         return reward_func
 
+    @staticmethod
+    def _warn_and_remove_keys(kwargs: dict, keys: set[str]) -> dict:
+        for key in keys:
+            if key in kwargs:
+                warnings.warn(f"GuidedSchema sets {key}")
+                del kwargs[key]
+        return kwargs
+
     def guided_decoding_params(self, **kwargs) -> GuidedDecodingParams:
         """
         Wraps GuidedDecodingParams
 
         - Sets json and grammar based on schema
         """
-        assert "json" not in kwargs, "Parser handles json"
-        assert "grammar" not in kwargs, "Parser handles grammar"
         return GuidedDecodingParams(
             json=self.model.model_json_schema() if self.schema == "json" else None,
             grammar=self.gbnf if self.schema == "xml" else None,
             backend="xgrammar",
-            **kwargs,
+            **self._warn_and_remove_keys(kwargs, {"json", "grammar", "backend"}),
         )
 
-    def sampling_params(self, max_tokens: int = 512, **kwargs) -> SamplingParams:
+    def sampling_params(
+        self,
+        max_tokens: int = 512,
+        guided_decoding: dict = {},
+        **kwargs,
+    ) -> SamplingParams:
         """
         Wraps SamplingParams
         """
-        guided_decoding = self.guided_decoding_params(
-            **kwargs.pop("guided_decoding", {})
-        )
-        output_kind = kwargs.pop("output_kind", RequestOutputKind.FINAL_ONLY)
-        if output_kind == RequestOutputKind.CUMULATIVE:
-            warnings.warn(
-                "output_kind=CUMULATIVE may result in slow generation. Recommended: output_kind=FINAL_ONLY"
-            )
         return SamplingParams(
             max_tokens=max_tokens,
-            guided_decoding=guided_decoding,
-            output_kind=output_kind,
-            **kwargs,
+            guided_decoding=self.guided_decoding_params(**guided_decoding),
+            output_kind=RequestOutputKind.FINAL_ONLY,
+            **self._warn_and_remove_keys(kwargs, {"output_kind"}),
         )

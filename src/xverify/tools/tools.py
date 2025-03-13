@@ -1,3 +1,15 @@
+def try_import(module: str) -> bool:
+    try:
+        import importlib
+
+        importlib.import_module(module)
+        return True
+    except ImportError:
+        raise ImportError(
+            f"Module {module} not foundinstall with `pip install xverify[tools]`"
+        )
+
+
 def calculator(
     expression: str,  # A mathematical expression using only numbers and basic operators (+,-,*,/,**,())
 ) -> str:  # The result of the calculation or an error message
@@ -42,6 +54,7 @@ def search(
         3
         </num_results>
     """
+    try_import("duckduckgo_search")
     from duckduckgo_search import DDGS
 
     try:
@@ -66,6 +79,7 @@ def code(
     code: str,  # Code to execute
 ):  # Result of expression on last line (if exists)
     """Executes python `code` using persistent IPython."""
+    try_import("toolslm")
     from toolslm.shell import get_shell
     import traceback
 
@@ -74,4 +88,4 @@ def code(
         res = shell.run_cell(code)
     except Exception:
         return traceback.format_exc()
-    return res.stdout if res.result is None else res.result
+    return res.stdout if res.result is None else res.result  # type: ignore

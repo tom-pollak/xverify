@@ -1,4 +1,5 @@
-from typing import Optional, Union, Any
+from typing import Optional, Union
+import msgspec
 
 from datasets import Dataset, IterableDataset
 import torch
@@ -8,7 +9,6 @@ from transformers import (
     TrainerCallback,
 )
 from trl.trainer.grpo_trainer import GRPOTrainer, GRPOConfig, RewardFunc
-from vllm.sampling_params import RequestOutputKind
 from vllm import RequestOutput
 
 from .guided_schema import GuidedSchema
@@ -57,12 +57,23 @@ class GRPOGuidedTrainer(GRPOTrainer):
         )
 
         self.guided_schema = guided_schema
-        self.sampling_params.guided_decoding = (
-            self.guided_schema.guided_decoding_params()
+        # update sampling params to use our guided decoding
+        self.sampling_params = self.guided_schema.sampling_params(
+            **msgspec.json.decode(msgspec.json.encode(self.sampling_params))
         )
-        self.sampling_params.output_kind = RequestOutputKind.FINAL_ONLY
-        self.llm._generate = self.llm.generate  # type: ignore
-        self.llm.generate = self.generate  # type: ignore
+        # patch vLLM to use our generate method -- which is used by GRPOTrainer to generate trajectories
+        # we can still use the original generate method under _generate
+        self.llm._generate, self.llm.generate = self.llm.generate, self.llm._generate  # type: ignore
 
     def generate(self, prompts, sampling_params, **kwargs) -> list[RequestOutput]:
         return self.llm._generate(prompts, sampling_params=sampling_params, **kwargs)  # type: ignore
+
+    def tool_response(self, trajectory: list[dict]) -> dict | None:
+        last_message = trajectory[-1]
+        assert last_message["role"] == "assistant", "should be assistant"
+        parsed = self.guided_schema.parse(last_message["content"])
+        return (
+            self.guided_schema.tool_response_func(parsed)
+            if parsed is not None
+            else None
+        )
