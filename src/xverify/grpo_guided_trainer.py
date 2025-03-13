@@ -89,33 +89,93 @@ class GRPOGuidedTrainer(GRPOTrainer):
         )  # type: ignore
 
         # for i, j in enumerate(live_indices):
+        # def update_state(j, llm_response):
+        #     # sleep for 0-1 seconds to avoid rate limiting
+        #     time.sleep(self.args.sleep_time * random.random())
+
+        #     state = copy.deepcopy(states[j]) # TODO: do we deepcopy
+        #     if len(state["prompt_ids"]) == 0:
+        #         state["prompt_ids"] = llm_response.prompt_token_ids
+        #     state["messages"].append(
+        #         {"role": "assistant", "content": llm_response.outputs[0].text}
+        #     )
+
+        #     # get token lengths of env response and new completion
+        #     total_prev_len = len(state["prompt_ids"]) + len(state["completion_ids"])
+        #     env_response_len = len(list(llm_response.prompt_token_ids)) - total_prev_len  # type: ignore
+        #     new_completion_len = len(llm_response.outputs[0].token_ids)
+
+        #     # update completion masks
+        #     state["completion_mask"].extend([self.args.env_mask] * env_response_len)
+        #     state["completion_mask"].extend([1] * new_completion_len)
+
+        #     # update completion ids
+        #     state["completion_ids"] = list(llm_response.prompt_token_ids)  # type: ignore
+        #     state["completion_ids"].extend(list(llm_response.outputs[0].token_ids))
+        #     state["completion_ids"] = state["completion_ids"][
+        #         len(state["prompt_ids"]) :
+        #     ]
+
+        #     env_res = self.tool_response(state["messages"])
+        #     if (
+        #         self.reached_max_steps(state["messages"])
+        #         or len(state["completion_ids"]) > sampling_params.max_tokens  # type: ignore
+        #         or env_res is None
+        #     ):
+        #         state["completed"] = True
+        #         state["completion_ids"] = state["completion_ids"][
+        #             : sampling_params.max_tokens
+        #         ]
+        #         state["completion_mask"] = state["completion_mask"][
+        #             : len(state["completion_ids"])
+        #         ]
+        #     else:
+        #         state["messages"].append(env_res)
+
+        #     if not len(state["completion_mask"]) == len(state["completion_ids"]):
+        #         print(f"{state['completed']=}")
+        #         print(f"{state['messages']=}")
+        #         print(f"{state['completion_mask']=}")
+        #         print(f"{state['completion_ids']=}")
+        #         raise ValueError(
+        #             f"Completion mask and completion ids are not the same length for state {j}"
+        #         )
+
+        #     return j, state
         def update_state(j, llm_response):
-            # sleep for 0-1 seconds to avoid rate limiting
             time.sleep(self.args.sleep_time * random.random())
 
-            state = copy.deepcopy(states[j]) # TODO: do we deepcopy
+            state = copy.deepcopy(states[j])
             if len(state["prompt_ids"]) == 0:
                 state["prompt_ids"] = llm_response.prompt_token_ids
+
             state["messages"].append(
                 {"role": "assistant", "content": llm_response.outputs[0].text}
             )
 
-            # get token lengths of env response and new completion
-            total_prev_len = len(state["prompt_ids"]) + len(state["completion_ids"])
-            env_response_len = len(list(llm_response.prompt_token_ids)) - total_prev_len  # type: ignore
-            new_completion_len = len(llm_response.outputs[0].token_ids)
+            # Calculate lengths in a more reliable way
+            old_completion_len = len(state["completion_ids"])
+            new_prompt_tokens = list(llm_response.prompt_token_ids)
+            new_output_tokens = list(llm_response.outputs[0].token_ids)
 
-            # update completion masks
-            state["completion_mask"].extend([self.args.env_mask] * env_response_len)
-            state["completion_mask"].extend([1] * new_completion_len)
+            # Extract only genuinely new tokens from prompt
+            prompt_prefix_len = len(state["prompt_ids"])
+            expected_total = prompt_prefix_len + old_completion_len
 
-            # update completion ids
-            state["completion_ids"] = list(llm_response.prompt_token_ids)  # type: ignore
-            state["completion_ids"].extend(list(llm_response.outputs[0].token_ids))
-            state["completion_ids"] = state["completion_ids"][
-                len(state["prompt_ids"]) :
-            ]
+            # Get only the new environment response tokens
+            env_response_tokens = []
+            if len(new_prompt_tokens) > expected_total:
+                env_response_tokens = new_prompt_tokens[expected_total:]
 
+            # Update both arrays consistently by extending
+            state["completion_mask"].extend(
+                [self.args.env_mask] * len(env_response_tokens)
+            )
+            state["completion_mask"].extend([1] * len(new_output_tokens))
+            state["completion_ids"].extend(env_response_tokens)
+            state["completion_ids"].extend(new_output_tokens)
+
+            # Rest of function remains the same
             env_res = self.tool_response(state["messages"])
             if (
                 self.reached_max_steps(state["messages"])
@@ -131,14 +191,6 @@ class GRPOGuidedTrainer(GRPOTrainer):
                 ]
             else:
                 state["messages"].append(env_res)
-
-            if not len(state["completion_mask"]) == len(state["completion_ids"]):
-                print(f"{state['messages']=}")
-                print(f"{state['completion_mask']=}")
-                print(f"{state['completion_ids']=}")
-                raise ValueError(
-                    f"Completion mask and completion ids are not the same length for state {j}"
-                )
 
             return j, state
 
