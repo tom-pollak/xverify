@@ -94,7 +94,6 @@ class GRPOGuidedTrainer(GRPOTrainer):
             time.sleep(self.args.sleep_time * random.random())
 
             state = copy.deepcopy(states[j]) # TODO: do we deepcopy
-            # state = states[j].copy()
             if len(state["prompt_ids"]) == 0:
                 state["prompt_ids"] = llm_response.prompt_token_ids
             state["messages"].append(
@@ -134,9 +133,9 @@ class GRPOGuidedTrainer(GRPOTrainer):
                 state["messages"].append(env_res)
 
             if not len(state["completion_mask"]) == len(state["completion_ids"]):
-                print(state["messages"])
-                print(state["completion_mask"])
-                print(state["completion_ids"])
+                print(f"{state['messages']=}")
+                print(f"{state['completion_mask']=}")
+                print(f"{state['completion_ids']=}")
                 raise ValueError(
                     f"Completion mask and completion ids are not the same length for state {j}"
                 )
