@@ -1,7 +1,10 @@
+from dataclasses import dataclass
+
 from trl import GRPOConfig
 
 __all__ = ["GuidedGRPOConfig", "get_default_grpo_config"]
 
+@dataclass
 class GuidedGRPOConfig(GRPOConfig):
     max_steps: int = 10
     sleep_time: float = 1.0

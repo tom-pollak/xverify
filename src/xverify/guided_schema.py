@@ -24,7 +24,6 @@ class GuidedSchema:
     """
 
     model: type[BaseModel]
-    max_steps: int
     gbnf: str
     doc: str
 
@@ -33,12 +32,10 @@ class GuidedSchema:
         model: type[BaseModel],
         schema: Literal["json", "xml"] = "xml",
         tool_response_func: Callable = run_tools,
-        max_steps: int = 10,
     ):
         self.model = model
         self.schema = schema
         self.tool_response_func = tool_response_func
-        self.max_steps = max_steps
         self.gbnf, self.doc = generate_gbnf_grammar_and_documentation([self.model])
 
     @staticmethod
