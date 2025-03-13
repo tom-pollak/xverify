@@ -59,9 +59,6 @@ class GuidedSchema:
                 raise e
             return None
 
-    def is_completed(self, trajectory: list[dict]) -> bool:
-        return len(self.contents(trajectory, role="assistant")) >= self.max_steps
-
     def parse_reward_func(self, reward_weight: float = 1.0) -> Callable:
         """
         Reward function that checks if the output is a valid structured output.

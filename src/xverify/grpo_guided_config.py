@@ -1,11 +1,25 @@
 from trl import GRPOConfig
 
+__all__ = ["GuidedGRPOConfig", "get_default_grpo_config"]
+
+class GuidedGRPOConfig(GRPOConfig):
+    max_steps: int = 10
+    sleep_time: float = 1.0
+    mask_env_response: bool = True
+    max_workers: int = 10
+
+    env_mask: int = None  # type: ignore
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.env_mask = 0 if self.mask_env_response else 1
+
 
 def get_default_grpo_config(
     run_name: str,
     num_gpus: int = 1,
     **kwargs,
-) -> GRPOConfig:
+) -> GuidedGRPOConfig:
     default_args = dict(
         output_dir=f"outputs/{run_name}",
         run_name=run_name,
@@ -38,4 +52,4 @@ def get_default_grpo_config(
         reward_weights=None,
     )
     # overwrites default args with kwarg
-    return GRPOConfig(**default_args, **kwargs)
+    return GuidedGRPOConfig(**default_args, **kwargs)

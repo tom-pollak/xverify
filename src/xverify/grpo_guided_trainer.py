@@ -1,20 +1,35 @@
-from typing import Optional, Union
+import random
+import time
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import msgspec
 import torch
+import wandb
+from accelerate.utils import broadcast_object_list, gather, gather_object
 from datasets import Dataset, IterableDataset
 from transformers import (
     PreTrainedModel,
     PreTrainedTokenizerBase,
+    Trainer,
     TrainerCallback,
 )
-from trl.trainer.grpo_trainer import GRPOConfig, GRPOTrainer, RewardFunc
-from vllm import RequestOutput
+from trl import GRPOTrainer
+from trl.data_utils import maybe_apply_chat_template
+from trl.import_utils import is_rich_available
+from trl.trainer.utils import pad
+from vllm import LLM, SamplingParams
 
+from .grpo_guided_config import GuidedGRPOConfig
 from .guided_schema import GuidedSchema
+from .utils.logging_utils import print_prompt_completions_sample
+
+RewardFunc = Union[str, PreTrainedModel, Callable[[list, list], list[float]]]
 
 
 class GRPOGuidedTrainer(GRPOTrainer):
+    args: GuidedGRPOConfig
+
     def __init__(
         self,
         /,
@@ -22,7 +37,7 @@ class GRPOGuidedTrainer(GRPOTrainer):
         ### GRPOTrainer args ###
         model: Union[str, PreTrainedModel],
         reward_funcs: Union[RewardFunc, list[RewardFunc]],
-        args: Optional[GRPOConfig] = None,
+        args: Optional[GuidedGRPOConfig] = None,
         train_dataset: Optional[Union[Dataset, IterableDataset]] = None,
         eval_dataset: Optional[
             Union[Dataset, IterableDataset, dict[str, Union[Dataset, IterableDataset]]]
@@ -61,12 +76,118 @@ class GRPOGuidedTrainer(GRPOTrainer):
         self.sampling_params = self.guided_schema.sampling_params(
             **msgspec.json.decode(msgspec.json.encode(self.sampling_params))
         )
-        # patch vLLM to use our generate method -- which is used by GRPOTrainer to generate trajectories
-        # we can still use the original generate method under _generate
-        self.llm._generate, self.llm.generate = self.llm.generate, self.llm._generate  # type: ignore
 
-    def generate(self, prompts, sampling_params, **kwargs) -> list[RequestOutput]:
-        return self.llm._generate(prompts, sampling_params=sampling_params, **kwargs)  # type: ignore
+    def step(
+        self, states: List[Dict[str, Any]], llm: LLM, sampling_params: SamplingParams
+    ) -> List[Dict[str, Any]]:
+        live_indices = [i for i, s in enumerate(states) if not s["completed"]]
+        messages_to_step = [states[i]["messages"] for i in live_indices]
+        llm_responses = llm.chat(
+            messages_to_step, sampling_params=sampling_params, use_tqdm=False
+        )  # type: ignore
+
+        # for i, j in enumerate(live_indices):
+        def update_state(j, llm_response):
+            # sleep for 0-1 seconds to avoid rate limiting
+            time.sleep(self.args.sleep_time * random.random())
+
+            state = states[j].copy()
+            if len(state["prompt_ids"]) == 0:
+                state["prompt_ids"] = llm_response.prompt_token_ids
+            state["messages"].append(
+                {"role": "assistant", "content": llm_response.outputs[0].text}
+            )
+
+            # get token lengths of env response and new completion
+            total_prev_len = len(state["prompt_ids"]) + len(state["completion_ids"])
+            env_response_len = len(list(llm_response.prompt_token_ids)) - total_prev_len  # type: ignore
+            new_completion_len = len(llm_response.outputs[0].token_ids)
+
+            # update completion masks
+            state["completion_mask"].extend([self.args.env_mask] * env_response_len)
+            state["completion_mask"].extend([1] * new_completion_len)
+
+            # update completion ids
+            state["completion_ids"] = list(llm_response.prompt_token_ids)  # type: ignore
+            state["completion_ids"].extend(list(llm_response.outputs[0].token_ids))
+            state["completion_ids"] = state["completion_ids"][
+                len(state["prompt_ids"]) :
+            ]
+
+            env_res = self.tool_response(state["messages"])
+            if (
+                self.reached_max_steps(state["messages"])
+                or len(state["completion_ids"]) > sampling_params.max_tokens
+                or env_res is None
+            ):  # type: ignore
+                state["completed"] = True
+                state["completion_ids"] = state["completion_ids"][
+                    : sampling_params.max_tokens
+                ]
+                state["completion_mask"] = state["completion_mask"][
+                    : len(state["completion_ids"])
+                ]
+            else:
+                state["messages"].append(env_res)
+
+            if not len(state["completion_mask"]) == len(state["completion_ids"]):
+                print(state["messages"])
+                print(state["completion_mask"])
+                print(state["completion_ids"])
+                raise ValueError(
+                    f"Completion mask and completion ids are not the same length for state {j}"
+                )
+
+            return j, state
+
+        with ThreadPoolExecutor(max_workers=self.args.max_workers) as executor:
+            results = list(
+                executor.map(
+                    lambda args: update_state(*args),
+                    [(j, llm_responses[i]) for i, j in enumerate(live_indices)],
+                )
+            )
+
+        for j, state in results:
+            states[j] = state
+
+        return states
+
+    def generate(
+        self,
+        prompts: List[List[Dict[str, Any]]],
+        llm: LLM,
+        sampling_params: SamplingParams,
+        **kwargs: Any,
+    ) -> Dict[str, List[Sequence[int]] | List[str] | List[List[Dict[str, Any]]]]:
+        # initialize state variables
+        all_completed = False
+        states = [
+            {
+                "messages": m,
+                "prompt_messages": len(m),
+                "prompt_ids": [],
+                "completed": False,
+                "completion_ids": [],
+                "completion_mask": [],
+            }
+            for m in prompts
+        ]
+
+        # main loop
+        while not all_completed:
+            states = self.step(states, llm, sampling_params)
+            all_completed = all(state["completed"] for state in states)
+
+        completion_messages = [s["messages"][s["prompt_messages"] :] for s in states]
+        completion_ids = [s["completion_ids"] for s in states]
+        completion_mask = [s["completion_mask"] for s in states]
+        output = {
+            "ids": completion_ids,
+            "messages": completion_messages,
+            "mask": completion_mask,
+        }
+        return output
 
     def tool_response(self, trajectory: list[dict]) -> dict | None:
         last_message = trajectory[-1]
@@ -79,3 +200,404 @@ class GRPOGuidedTrainer(GRPOTrainer):
             if parsed is not None
             else None
         )
+
+    def reached_max_steps(self, trajectory: list[dict]) -> bool:
+        return (
+            len(self.guided_schema.contents(trajectory, role="assistant"))
+            >= self.args.max_steps
+        )
+
+    def _generate_and_score_completions(
+        self, inputs: dict[str, Union[torch.Tensor, Any]]
+    ) -> dict[str, Union[torch.Tensor, Any]]:
+        device = self.accelerator.device
+        prompts = [x["prompt"] for x in inputs]  # type: ignore
+        prompts_text = [
+            maybe_apply_chat_template(example, self.processing_class)["prompt"]
+            for example in inputs
+        ]  # type: ignore
+        prompt_inputs = self.processing_class(
+            prompts_text,
+            return_tensors="pt",
+            padding=True,
+            padding_side="left",
+            add_special_tokens=False,  # type: ignore
+        )  # type: ignore
+        prompt_inputs = Trainer._prepare_inputs(self, prompt_inputs)  # type: ignore
+        prompt_ids, prompt_mask = (
+            prompt_inputs["input_ids"],
+            prompt_inputs["attention_mask"],
+        )
+
+        if self.max_prompt_length is not None:
+            prompt_ids = prompt_ids[:, -self.max_prompt_length :]
+            prompt_mask = prompt_mask[:, -self.max_prompt_length :]
+
+        if self.state.global_step != self._last_loaded_step:
+            self._move_model_to_vllm()
+            self._last_loaded_step = self.state.global_step
+
+        # Gather the original prompts in message dict form, not the text form
+        all_prompts = gather_object(prompts)
+        if self.accelerator.is_main_process:
+            env_result = self.generate(
+                prompts=all_prompts,
+                llm=self.llm,
+                sampling_params=self.sampling_params,
+            )
+            completion_ids = env_result["ids"]
+            completion_messages = env_result["messages"]
+            completion_mask = env_result["mask"]
+
+        else:
+            completion_ids = [None] * len(all_prompts)
+            completion_messages = [None] * len(all_prompts)
+            completion_mask = [None] * len(all_prompts)
+
+        completion_ids = broadcast_object_list(completion_ids, from_process=0)
+        completion_messages = broadcast_object_list(completion_messages, from_process=0)
+        completion_mask = broadcast_object_list(completion_mask, from_process=0)
+
+        process_slice = slice(
+            self.accelerator.process_index * len(prompts),
+            (self.accelerator.process_index + 1) * len(prompts),
+        )
+
+        completion_ids = completion_ids[process_slice]
+        completion_messages = completion_messages[process_slice]
+        completion_mask = completion_mask[process_slice]
+
+        # Pad + mask after per-sequence EOS tokens
+        completion_ids = [torch.tensor(ids, device=device) for ids in completion_ids]
+        completion_ids = pad(
+            completion_ids, padding_value=self.processing_class.pad_token_id
+        )  # type: ignore
+
+        completion_mask = [
+            torch.tensor(mask, device=device) for mask in completion_mask
+        ]
+        completion_mask = pad(completion_mask, padding_value=0)
+
+        prompt_completion_ids = torch.cat([prompt_ids, completion_ids], dim=1)
+        attention_mask = torch.cat([prompt_mask, completion_mask], dim=1)  # (B, P+C)
+
+        logits_to_keep = completion_ids.size(1)
+
+        with torch.no_grad():
+            # When using num_iterations == 1, old_per_token_logps == per_token_logps, so we can skip it's
+            # computation here, and use per_token_logps.detach() instead.
+            if self.num_iterations > 1:
+                old_per_token_logps = self._get_per_token_logps(
+                    self.model, prompt_completion_ids, attention_mask, logits_to_keep
+                )
+            else:
+                old_per_token_logps = None
+
+            if self.beta == 0.0:
+                ref_per_token_logps = None
+            elif self.ref_model is not None:
+                ref_per_token_logps = self._get_per_token_logps(
+                    self.ref_model,
+                    prompt_completion_ids,
+                    attention_mask,
+                    logits_to_keep,
+                )
+            else:
+                with self.accelerator.unwrap_model(self.model).disable_adapter():
+                    ref_per_token_logps = self._get_per_token_logps(
+                        self.model,
+                        prompt_completion_ids,
+                        attention_mask,
+                        logits_to_keep,
+                    )
+
+        # use message dicts for reward function inputs
+        completions = completion_messages
+        rewards_per_func = torch.zeros(
+            len(prompts), len(self.reward_funcs), device=device
+        )
+        for i, reward_func in enumerate(self.reward_funcs):
+            # Repeat all input columns (but "prompt" and "completion") to match the number of generations
+            keys = [key for key in inputs[0] if key not in ["prompt", "completion"]]  # type: ignore
+            reward_kwargs = {key: [example[key] for example in inputs] for key in keys}  # type: ignore
+            output_reward_func = reward_func(
+                prompts=prompts, completions=completions, **reward_kwargs
+            )  # type: ignore
+            rewards_per_func[:, i] = torch.tensor(
+                output_reward_func, dtype=torch.float32, device=device
+            )
+
+        rewards_per_func = gather(rewards_per_func)
+
+        # Apply weights to each reward function's output and sum
+        rewards = (rewards_per_func * self.reward_weights.to(device).unsqueeze(0)).sum(
+            dim=1
+        )
+
+        # Compute grouped-wise rewards
+        mean_grouped_rewards = rewards.view(-1, self.num_generations).mean(dim=1)  # type: ignore
+        std_grouped_rewards = rewards.view(-1, self.num_generations).std(dim=1)  # type: ignore
+
+        # Normalize the rewards to compute the advantages
+        mean_grouped_rewards = mean_grouped_rewards.repeat_interleave(
+            self.num_generations, dim=0
+        )  # type: ignore
+        std_grouped_rewards = std_grouped_rewards.repeat_interleave(
+            self.num_generations, dim=0
+        )  # type: ignore
+        advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
+
+        # Slice to keep only the local part of the data
+        process_slice = slice(
+            self.accelerator.process_index * len(prompts),
+            (self.accelerator.process_index + 1) * len(prompts),
+        )
+        advantages = advantages[process_slice]
+
+        # Log the metrics
+        mode = "eval" if self.control.should_evaluate else "train"
+
+        completion_length = (
+            self.accelerator.gather_for_metrics(completion_mask.sum(1))
+            .float()
+            .mean()
+            .item()
+        )  # type: ignore
+        self._metrics[mode]["completion_length"].append(completion_length)
+
+        reward_per_func = rewards_per_func.mean(0)  # type: ignore
+        for i, reward_func in enumerate(self.reward_funcs):
+            reward_func_name = reward_func.__name__  # type: ignore
+            self._metrics[mode][f"rewards/{reward_func_name}"].append(
+                reward_per_func[i].item()
+            )
+
+        self._metrics[mode]["reward"].append(rewards.mean().item())
+        self._metrics[mode]["reward_std"].append(std_grouped_rewards.mean().item())
+
+        if (
+            self.log_completions
+            and self.state.global_step % self.args.logging_steps == 0
+        ):
+            prompts_to_log = gather_object(prompts)
+            completions_to_log = gather_object(completions)
+            rewards_to_log = rewards.tolist()
+
+            if self.accelerator.is_main_process:
+                if is_rich_available():
+                    print_prompt_completions_sample(
+                        [str(prompts_to_log[0][-1]["content"])],
+                        [completions_to_log[0]],
+                        [rewards_to_log[0]],
+                        self.state.global_step,
+                    )
+                if (
+                    self.args.report_to
+                    and "wandb" in self.args.report_to
+                    and wandb.run is not None
+                ):  # type: ignore
+                    import pandas as pd
+
+                    # For logging
+                    table = {
+                        "step": [str(self.state.global_step)] * len(rewards),
+                        "prompt": prompts_to_log,
+                        "completion": completions_to_log,
+                        "reward": rewards.tolist(),
+                    }
+                    df = pd.DataFrame(table)
+                    wandb.log({"completions": wandb.Table(dataframe=df)})  # type: ignore
+
+        return {
+            "prompt_ids": prompt_ids,
+            "prompt_mask": prompt_mask,
+            "completion_ids": completion_ids,
+            "completion_mask": completion_mask,
+            "old_per_token_logps": old_per_token_logps,
+            "ref_per_token_logps": ref_per_token_logps,
+            "advantages": advantages,
+        }
+
+    def step_api(
+        self, client: Any, model: str, messages: List[Dict[str, str]], **kwargs: Any
+    ) -> Tuple[List[Dict[str, str]], bool]:
+        """
+        Execute a single step using OpenAI API, including environment response if needed.
+
+        Args:
+            client: OpenAI client instance
+            messages: Conversation history
+            model: Model name to use
+            **kwargs: Additional arguments for the chat completion API
+
+        Returns:
+            Updated messages list with assistant response and possibly environment response
+        """
+        messages_copy = messages.copy()
+
+        try:
+            # Get assistant response
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages_copy,
+            )
+
+            # Add assistant response to messages
+            assistant_msg = {
+                "role": "assistant",
+                "content": response.choices[0].message.content,
+            }
+            messages_copy.append(assistant_msg)
+
+            # Check if we're done
+            env_msg = self.tool_response(messages_copy)
+            if self.reached_max_steps(messages_copy) or env_msg is None:
+                rollout_is_completed = True
+            else:
+                rollout_is_completed = False
+                # If not done, get and add environment response
+                messages_copy.append(env_msg)
+
+            return messages_copy, rollout_is_completed
+
+        except Exception as e:
+            # Handle errors by adding error message and returning
+            error_msg = {"role": "assistant", "content": f"Error in API call: {str(e)}"}
+            messages_copy.append(error_msg)
+            return messages_copy, True
+
+    def eval_api(
+        self,
+        client: Any,
+        model: str,
+        max_concurrent: int = 32,
+        timeout: int = 60,
+        sampling_args: Dict[str, Any] = {},
+        **kwargs: Any,
+    ):
+        """
+        Evaluate model using OpenAI API with proper concurrency.
+
+        Args:
+            client: OpenAI client instance
+            model: Model name as string
+            max_concurrent: Maximum number of concurrent API calls
+            timeout: Maximum seconds to wait for each example
+            sampling_args: Arguments specific to sampling (separate from env sampling_args)
+            **kwargs: Additional arguments for evaluation
+
+        Returns:
+            Tuple of (eval_dataset, rewards)
+        """
+
+        def run_evaluation():
+            # Import libraries here to avoid requiring them for normal operation
+            import asyncio
+            from asyncio import Semaphore
+
+            # Get the evaluation dataset
+            if self.eval_dataset is None:
+                raise ValueError("Failed to load evaluation dataset")
+
+            async def process_example(example, semaphore):
+                async with semaphore:
+                    # Initialize conversation with system prompt and few-shot examples
+                    prompt = example["prompt"]
+                    messages = example["prompt"].copy()
+                    answer = example["answer"]
+
+                    # Save the length of initial messages to extract just the interaction part later
+                    initial_length = len(messages)
+
+                    # Run the conversation loop until completion or max steps
+                    for _ in range(
+                        self.args.max_steps
+                    ):  # Safety limit on conversation turns
+                        try:
+                            # Run step_api to get model and environment response
+                            # Note: step_api now returns a tuple (messages, is_completed)
+                            step_result = (
+                                await asyncio.get_event_loop().run_in_executor(
+                                    None,
+                                    lambda: self.step_api(
+                                        client=client,
+                                        model=model,
+                                        messages=messages,
+                                        **sampling_args,
+                                    ),
+                                )
+                            )
+
+                            # Unpack the step_api result
+                            messages, is_completed = step_result
+
+                            # If the rollout is completed, break the loop
+                            if is_completed:
+                                break
+
+                        except Exception as e:
+                            print(
+                                f"Error processing example {example.get('id', 'unknown')}: {str(e)}"
+                            )
+                            break
+
+                    # Extract only the interaction part (not system/few-shot)
+                    completions = messages[initial_length:]
+
+                    return {
+                        "prompt": prompt,
+                        "completions": completions,
+                        "answer": answer,
+                    }
+
+            async def run_all_examples():
+                assert self.eval_dataset is not None
+                # Create semaphore for concurrency control
+                from tqdm.asyncio import tqdm_asyncio
+
+                semaphore = Semaphore(max_concurrent)
+
+                # Process all examples concurrently
+                tasks = [
+                    process_example(example, semaphore) for example in self.eval_dataset
+                ]
+                results = await tqdm_asyncio.gather(
+                    *tasks,
+                    total=len(self.eval_dataset),
+                    desc=f"Evaluating {len(self.eval_dataset)} examples",
+                )
+
+                return results
+
+            # Run the async evaluation
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                results = loop.run_until_complete(run_all_examples())
+            finally:
+                loop.close()
+
+            # Calculate rewards
+            results_prompt = [result["prompt"] for result in results]
+            results_answer = [result["answer"] for result in results]
+            results_completions = [result["completions"] for result in results]
+            results = {
+                "prompt": results_prompt,
+                "answer": results_answer,
+                "completions": results_completions,
+            }
+
+            reward_funcs = self.reward_funcs
+            rewards = {}
+
+            for reward_func in reward_funcs:
+                func_rewards = reward_func(**results)  # type: ignore
+                func_reward_avg = sum(func_rewards) / len(func_rewards)
+                func_name = reward_func.__name__  # type: ignore
+                print(f"{func_name}: {func_reward_avg}")
+                rewards[func_name] = func_reward_avg
+
+            return rewards
+
+        # Run the evaluation function
+        return run_evaluation()
