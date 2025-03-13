@@ -1,18 +1,25 @@
 from .guided_schema import GuidedSchema
+from .grpo_guided_trainer import GRPOGuidedTrainer
 from .tool_use import JSONToolUse, XMLToolUse, run_tools
 from .xml.parser import parse_xml_to_model
-from .tools import calculator, search
-from .trainers.grpo_guided_trainer import GRPOGuidedTrainer
-
-from .utils.model_utils import get_model, get_tokenizer, get_model_and_tokenizer
-from .utils.config_utils import get_default_grpo_config
+from .utils import (
+    get_model,
+    get_tokenizer,
+    get_model_and_tokenizer,
+    get_default_grpo_config,
+)
+from .tools import (
+    calculator,
+    search,
+    code,
+)
 
 __all__ = [
+    "GuidedSchema",
+    "GRPOGuidedTrainer",
     "JSONToolUse",
     "XMLToolUse",
     "run_tools",
-    "GuidedSchema",
-    "GRPOGuidedTrainer",
     "parse_xml_to_model",
     "get_model",
     "get_tokenizer",
@@ -20,4 +27,5 @@ __all__ = [
     "get_default_grpo_config",
     "calculator",
     "search",
+    "code",
 ]

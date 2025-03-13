@@ -11,7 +11,7 @@ from trl.trainer.grpo_trainer import GRPOTrainer, GRPOConfig, RewardFunc
 from vllm.sampling_params import RequestOutputKind
 from vllm import RequestOutput
 
-from ..guided_schema import GuidedSchema
+from .guided_schema import GuidedSchema
 
 
 class GRPOGuidedTrainer(GRPOTrainer):
