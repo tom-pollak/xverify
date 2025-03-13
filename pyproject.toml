@@ -1,7 +1,7 @@
 [project]
 name = "xverify"
 version = "0.1.0"
-description = "Add your description here"
+description = "Guided XML Decoding x GRPO"
 readme = "README.md"
 authors = [{ name = "Tom Pollak", email = "tompollak1000@gmail.com" }]
 requires-python = ">=3.11"
@@ -42,7 +42,6 @@ flash-attn = ["flash-attn"]
 [tool.uv.sources]
 trl = { git = "https://github.com/huggingface/trl.git" }
 
-# for flash-attn build
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
