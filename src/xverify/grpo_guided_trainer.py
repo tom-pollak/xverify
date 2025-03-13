@@ -57,7 +57,7 @@ class GRPOGuidedTrainer(GRPOTrainer):
         )
 
         self.guided_schema = guided_schema
-        # update sampling params to use our guided decoding
+        # update sampling params to use our guided decoding params
         self.sampling_params = self.guided_schema.sampling_params(
             **msgspec.json.decode(msgspec.json.encode(self.sampling_params))
         )
@@ -70,7 +70,9 @@ class GRPOGuidedTrainer(GRPOTrainer):
 
     def tool_response(self, trajectory: list[dict]) -> dict | None:
         last_message = trajectory[-1]
-        assert last_message["role"] == "assistant", "should be assistant"
+        if last_message["role"] != "assistant":
+            # could return None here, but this is UB
+            raise ValueError("Last message should be assistant")
         parsed = self.guided_schema.parse(last_message["content"])
         return (
             self.guided_schema.tool_response_func(parsed)

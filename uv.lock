@@ -4040,6 +4040,15 @@ wheels = [
 ]
 
 [[package]]
+name = "wheel"
+version = "0.45.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8a/98/2d9906746cdc6a6ef809ae6338005b3f21bb568bea3165cfc6a243fdc25c/wheel-0.45.1.tar.gz", hash = "sha256:661e1abd9198507b1409a20c02106d9670b2576e916d58f520316666abca6729", size = 107545 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/2c/87f3254fd8ffd29e4c02732eee68a83a1d3c346ae39bc6822dcbcb697f2b/wheel-0.45.1-py3-none-any.whl", hash = "sha256:708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248", size = 72494 },
+]
+
+[[package]]
 name = "widgetsnbextension"
 version = "4.0.13"
 source = { registry = "https://pypi.org/simple" }
@@ -4098,17 +4107,22 @@ source = { editable = "." }
 dependencies = [
     { name = "docstring-parser" },
     { name = "fastcore" },
-    { name = "flash-attn" },
     { name = "liger-kernel" },
     { name = "peft" },
     { name = "pydantic" },
+    { name = "setuptools" },
+    { name = "torch" },
     { name = "trl" },
     { name = "vllm" },
     { name = "wandb" },
+    { name = "wheel" },
     { name = "xmltodict" },
 ]
 
 [package.optional-dependencies]
+flash-attn = [
+    { name = "flash-attn" },
+]
 tools = [
     { name = "duckduckgo-search" },
     { name = "numpy" },
@@ -4129,20 +4143,23 @@ requires-dist = [
     { name = "docstring-parser", specifier = ">=0.16" },
     { name = "duckduckgo-search", marker = "extra == 'tools'", specifier = ">=7.5.1" },
     { name = "fastcore", specifier = ">=1.7.29" },
-    { name = "flash-attn" },
+    { name = "flash-attn", marker = "extra == 'flash-attn'" },
     { name = "liger-kernel", specifier = ">=0.5.4" },
     { name = "numpy", marker = "extra == 'tools'", specifier = ">=1.26.4" },
     { name = "peft", specifier = ">=0.14.0" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "scipy", marker = "extra == 'tools'", specifier = ">=1.15.2" },
+    { name = "setuptools", specifier = ">=76.0.0" },
     { name = "sympy", marker = "extra == 'tools'", specifier = ">=1.13.1" },
     { name = "toolslm", marker = "extra == 'tools'", specifier = ">=0.1.0" },
+    { name = "torch", specifier = ">=2.0.0" },
     { name = "trl", git = "https://github.com/huggingface/trl.git" },
     { name = "vllm", specifier = ">=0.7.3" },
     { name = "wandb", specifier = ">=0.19.8" },
+    { name = "wheel", specifier = ">=0.45.1" },
     { name = "xmltodict", specifier = ">=0.14.2" },
 ]
-provides-extras = ["tools"]
+provides-extras = ["tools", "flash-attn"]
 
 [package.metadata.requires-dev]
 dev = [
