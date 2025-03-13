@@ -61,8 +61,8 @@ class GRPOGuidedTrainer(GRPOTrainer):
             self.guided_schema.guided_decoding_params()
         )
         self.sampling_params.output_kind = RequestOutputKind.FINAL_ONLY
-        self.llm._generate = self.llm.generate # type: ignore
+        self.llm._generate = self.llm.generate  # type: ignore
         self.llm.generate = self.generate  # type: ignore
 
     def generate(self, prompts, sampling_params, **kwargs) -> list[RequestOutput]:
-        return self.llm._generate(prompts, sampling_params=sampling_params, **kwargs) # type: ignore
+        return self.llm._generate(prompts, sampling_params=sampling_params, **kwargs)  # type: ignore

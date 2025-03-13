@@ -247,13 +247,13 @@ class TypeInfo:
 
         elif self.kind == TypeKind.LIST:
             element_type = (
-                self.element_types[0] if self.element_types else TypeInfo(Any)
+                self.element_types[0] if self.element_types else TypeInfo(Any)  # type: ignore
             )
             return f"list of {element_type.get_type_name()}"
 
         elif self.kind == TypeKind.SET:
             element_type = (
-                self.element_types[0] if self.element_types else TypeInfo(Any)
+                self.element_types[0] if self.element_types else TypeInfo(Any)  # type: ignore
             )
             return f"set of {element_type.get_type_name()}"
 
@@ -374,12 +374,13 @@ class DocumentationGenerator:
         # Add examples if available
         if (
             hasattr(model, "Config")
-            and hasattr(model.Config, "json_schema_extra")
-            and "example" in model.Config.json_schema_extra
+            and hasattr(model.Config, "json_schema_extra")  # type: ignore
+            and "example" in model.Config.json_schema_extra  # type: ignore
         ):
             lines.append(f"  Expected Example Output for {model.__name__}:")
             example_json = json.dumps(
-                model.Config.json_schema_extra["example"], indent=2
+                    model.Config.json_schema_extra["example"], # type: ignore
+                indent=2,  # type: ignore
             )
             example_lines = example_json.split("\n")
             for line in example_lines:
@@ -720,7 +721,7 @@ class XMLGrammarGenerator:
         # Handle enums
         elif type_info.kind == TypeKind.ENUM:
             rule_name = f"{field_name}-enum"
-            enum_values = [f'nl "{e.value}"' for e in type_info.python_type]
+            enum_values = [f'nl "{e.value}"' for e in type_info.python_type]  # type: ignore
             enum_pattern = " | ".join(enum_values)
             enum_rule = GrammarRule(rule_name, enum_pattern)
             self.rule_set.add_rule(enum_rule)

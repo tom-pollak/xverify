@@ -43,7 +43,7 @@ class GuidedSchema:
     def contents(trajectory: list[dict], role: str = "assistant") -> list[str]:
         return [c["content"] for c in trajectory if c["role"] == role]
 
-    def parse(self, message: str) -> BaseModel | None:
+    def parse(self, message: str, raise_error: bool = False) -> BaseModel | None:
         try:
             match self.schema:
                 case "json":
@@ -53,10 +53,12 @@ class GuidedSchema:
                 case _:
                     raise ValueError(f"Invalid schema: {self.schema}")
         except ValidationError as e:
-            print(f"Validation error: {e}")
+            if raise_error:
+                raise e
             return None
         except ParseError as e:
-            print(f"XML parsing error: {e}")
+            if raise_error:
+                raise e
             return None
 
     def env_response(self, trajectory: list[dict]) -> dict | None:
