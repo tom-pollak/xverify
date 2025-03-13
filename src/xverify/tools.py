@@ -80,8 +80,9 @@ def code(
 ):  # Result of expression on last line (if exists)
     """Executes python `code` using persistent IPython."""
     try_import("toolslm")
-    from toolslm.shell import get_shell
     import traceback
+
+    from toolslm.shell import get_shell
 
     shell = get_shell()
     try:

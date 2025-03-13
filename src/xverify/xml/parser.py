@@ -1,6 +1,7 @@
+from typing import Generator, Type, get_args
+
 import xmltodict
 from pydantic import BaseModel
-from typing import Generator, Type, get_args
 
 __all__ = ["parse_xml_to_model"]
 

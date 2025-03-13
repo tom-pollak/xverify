@@ -14,10 +14,11 @@ Key features:
 
 from __future__ import annotations
 
-from inspect import getdoc, isclass
 import json
 from enum import Enum
+from inspect import getdoc, isclass
 from typing import (
+    Annotated,
     Any,
     Dict,
     List,
@@ -29,7 +30,6 @@ from typing import (
     Union,
     get_args,
     get_origin,
-    Annotated,
 )
 
 from pydantic import BaseModel
@@ -379,7 +379,7 @@ class DocumentationGenerator:
         ):
             lines.append(f"  Expected Example Output for {model.__name__}:")
             example_json = json.dumps(
-                    model.Config.json_schema_extra["example"], # type: ignore
+                model.Config.json_schema_extra["example"],  # type: ignore
                 indent=2,  # type: ignore
             )
             example_lines = example_json.split("\n")

@@ -1,9 +1,10 @@
+import warnings
 from pyexpat import ExpatError
 from typing import Callable, Literal
-import warnings
-from pydantic import BaseModel, ValidationError
 from xml.etree.ElementTree import ParseError
-from vllm.sampling_params import GuidedDecodingParams, SamplingParams, RequestOutputKind
+
+from pydantic import BaseModel, ValidationError
+from vllm.sampling_params import GuidedDecodingParams, RequestOutputKind, SamplingParams
 
 from .tool_use import run_tools
 from .xml import generate_gbnf_grammar_and_documentation, parse_xml_to_model

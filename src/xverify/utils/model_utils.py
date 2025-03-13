@@ -1,5 +1,5 @@
 from importlib.util import find_spec
-from typing import Dict, Any, Union, Tuple
+from typing import Any, Dict, Tuple, Union
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer

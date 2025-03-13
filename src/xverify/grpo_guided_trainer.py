@@ -1,14 +1,14 @@
 from typing import Optional, Union
-import msgspec
 
-from datasets import Dataset, IterableDataset
+import msgspec
 import torch
+from datasets import Dataset, IterableDataset
 from transformers import (
     PreTrainedModel,
     PreTrainedTokenizerBase,
     TrainerCallback,
 )
-from trl.trainer.grpo_trainer import GRPOTrainer, GRPOConfig, RewardFunc
+from trl.trainer.grpo_trainer import GRPOConfig, GRPOTrainer, RewardFunc
 from vllm import RequestOutput
 
 from .guided_schema import GuidedSchema

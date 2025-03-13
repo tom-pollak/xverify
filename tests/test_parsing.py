@@ -6,14 +6,13 @@ This test suite validates that the grammar correctly guides LLMs
 to generate parseable XML outputs for a wide variety of model structures.
 """
 
-import pytest
-from typing import Optional, List, Dict, Union, Literal, Any, Annotated
 from enum import Enum
-from pydantic import BaseModel, Field
-
-import xmltodict
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 from xml.parsers.expat import ExpatError as ParseError
 
+import pytest
+import xmltodict
+from pydantic import BaseModel, Field
 from xverify import GuidedSchema, XMLToolUse
 from xverify.tools import calculator, search
 
