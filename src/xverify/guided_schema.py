@@ -103,7 +103,7 @@ class GuidedSchema:
         return GuidedDecodingParams(
             json=self.model.model_json_schema() if self.schema == "json" else None,
             grammar=self.gbnf if self.schema == "xml" else None,
-            backend="outlines",
+            backend="xgrammar",
             **kwargs,
         )
 
