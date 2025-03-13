@@ -1,3 +1,4 @@
+from pyexpat import ExpatError
 from typing import Callable, Literal
 import warnings
 from pydantic import BaseModel, ValidationError
@@ -52,11 +53,7 @@ class GuidedSchema:
                     return parse_xml_to_model(self.model, message)
                 case _:
                     raise ValueError(f"Invalid schema: {self.schema}")
-        except ValidationError as e:
-            if raise_error:
-                raise e
-            return None
-        except ParseError as e:
+        except (ValidationError, ParseError, ExpatError) as e:
             if raise_error:
                 raise e
             return None

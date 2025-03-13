@@ -1,6 +1,3 @@
-from toolslm.shell import get_shell
-import traceback
-
 def calculator(
     expression: str,  # A mathematical expression using only numbers and basic operators (+,-,*,/,**,())
 ) -> str:  # The result of the calculation or an error message
@@ -66,10 +63,15 @@ def search(
 
 # can be persistent if we save shell
 def code(
-    code:str,   # Code to execute
-): # Result of expression on last line (if exists)
-    "Executes python `code` using persistent IPython. "
+    code: str,  # Code to execute
+):  # Result of expression on last line (if exists)
+    """Executes python `code` using persistent IPython."""
+    from toolslm.shell import get_shell
+    import traceback
+
     shell = get_shell()
-    try: res = shell.run_cell(code)
-    except Exception: return traceback.format_exc()
+    try:
+        res = shell.run_cell(code)
+    except Exception:
+        return traceback.format_exc()
     return res.stdout if res.result is None else res.result
