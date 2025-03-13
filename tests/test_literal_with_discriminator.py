@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from xverify.xml import generate_gbnf_grammar_and_documentation
 from xverify.tools import calculator, search
-from xverify import XMLToolUse, Environment
+from xverify import XMLToolUse, GuidedSchema
 
 
 def test_basic_literal_fields():
@@ -113,7 +113,7 @@ def test_example_from_literal_tests():
         )
 
     # Generate the grammar
-    env = Environment(Reason_and_Act)
+    env = GuidedSchema(Reason_and_Act)
     grammar = env.gbnf
 
     # Verify literal fields have separate rules
@@ -200,7 +200,7 @@ def test_end_to_end_literal_parsing():
     """
 
     # Test parsing with the environment
-    env = Environment(UIAction)
+    env = GuidedSchema(UIAction)
 
     # Parse menu action
     parsed_menu = env.parse(menu_xml)

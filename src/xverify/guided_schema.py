@@ -8,7 +8,7 @@ from .tool_use import run_tools
 from .xml import generate_gbnf_grammar_and_documentation, parse_xml_to_model
 
 
-class Environment:
+class GuidedSchema:
     """
     A trajectory is completed when either:
     - `env_response` returns None -- no tool is used
@@ -103,6 +103,7 @@ class Environment:
         return GuidedDecodingParams(
             json=self.model.model_json_schema() if self.schema == "json" else None,
             grammar=self.gbnf if self.schema == "xml" else None,
+            backend="outlines",
             **kwargs,
         )
 

@@ -7,6 +7,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.panel import Panel
 
+
 def setup_logging(
     level: str = "INFO",
     log_format: Optional[str] = None,
@@ -44,7 +45,6 @@ def print_prompt_completions_sample(
     rewards: list[float],
     step: int,
 ) -> None:
-
     console = Console()
     table = Table(show_header=True, header_style="bold white", expand=True)
 
