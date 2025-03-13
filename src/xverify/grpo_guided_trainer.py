@@ -1,3 +1,5 @@
+import copy
+import json
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -91,7 +93,8 @@ class GRPOGuidedTrainer(GRPOTrainer):
             # sleep for 0-1 seconds to avoid rate limiting
             time.sleep(self.args.sleep_time * random.random())
 
-            state = states[j].copy()
+            state = copy.deepcopy(states[j]) # TODO: do we deepcopy
+            # state = states[j].copy()
             if len(state["prompt_ids"]) == 0:
                 state["prompt_ids"] = llm_response.prompt_token_ids
             state["messages"].append(
@@ -115,19 +118,11 @@ class GRPOGuidedTrainer(GRPOTrainer):
             ]
 
             env_res = self.tool_response(state["messages"])
-            # DEBUG
-            print(f"{j}: received env response: {env_res}")
             if (
                 self.reached_max_steps(state["messages"])
                 or len(state["completion_ids"]) > sampling_params.max_tokens  # type: ignore
                 or env_res is None
             ):
-                print(f"{j}: === completed ===")
-                print(f"{j}: {state['messages']}")
-                print(f"{j}: {self.reached_max_steps(state['messages'])}")
-                print(f"{j}: {len(state['completion_ids'])}")
-                print(f"{j}: {sampling_params.max_tokens}")
-                print(f"{j}: {env_res is None}")
                 state["completed"] = True
                 state["completion_ids"] = state["completion_ids"][
                     : sampling_params.max_tokens
@@ -136,7 +131,6 @@ class GRPOGuidedTrainer(GRPOTrainer):
                     : len(state["completion_ids"])
                 ]
             else:
-                print(f"{j}: continuing")
                 state["messages"].append(env_res)
 
             if not len(state["completion_mask"]) == len(state["completion_ids"]):
@@ -209,13 +203,9 @@ class GRPOGuidedTrainer(GRPOTrainer):
         tool_res = self.guided_schema.tool_response_func(parsed)
         if tool_res is None:
             return None
-        return dict(role="user", content=tool_res)
+        return dict(role="user", content=json.dumps(tool_res, indent=2))
 
     def reached_max_steps(self, trajectory: list[dict]) -> bool:
-        print(f"trajectory: {trajectory}")
-        print(
-            f"reached_max_steps: {len(self.guided_schema.contents(trajectory, role='assistant'))} >= {self.args.max_steps}"
-        )
         return (
             len(self.guided_schema.contents(trajectory, role="assistant"))
             >= self.args.max_steps
