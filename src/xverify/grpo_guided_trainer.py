@@ -3,11 +3,10 @@ import json
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 import msgspec
 import torch
-import wandb
 from accelerate.utils import broadcast_object_list, gather, gather_object
 from datasets import Dataset, IterableDataset
 from transformers import (
@@ -21,6 +20,8 @@ from trl.data_utils import maybe_apply_chat_template
 from trl.import_utils import is_rich_available
 from trl.trainer.utils import pad
 from vllm import LLM, SamplingParams
+
+import wandb
 
 from .grpo_guided_config import GuidedGRPOConfig
 from .guided_schema import GuidedSchema
@@ -161,7 +162,7 @@ class GRPOGuidedTrainer(GRPOTrainer):
         prompts: List[List[Dict[str, Any]]],
         llm: LLM,
         sampling_params: SamplingParams,
-        **kwargs: Any,
+        **_: Any,
     ) -> Dict[str, List[Sequence[int]] | List[str] | List[List[Dict[str, Any]]]]:
         # initialize state variables
         all_completed = False
@@ -217,14 +218,14 @@ class GRPOGuidedTrainer(GRPOTrainer):
         device = self.accelerator.device
         prompts = [x["prompt"] for x in inputs]  # type: ignore
         prompts_text = [
-            maybe_apply_chat_template(example, self.processing_class)["prompt"]
+            maybe_apply_chat_template(example, self.processing_class)["prompt"]  # type: ignore
             for example in inputs
         ]  # type: ignore
         prompt_inputs = self.processing_class(
             prompts_text,
             return_tensors="pt",
             padding=True,
-            padding_side="left",
+            padding_side="left",  # type: ignore
             add_special_tokens=False,  # type: ignore
         )  # type: ignore
         prompt_inputs = Trainer._prepare_inputs(self, prompt_inputs)  # type: ignore
@@ -274,8 +275,9 @@ class GRPOGuidedTrainer(GRPOTrainer):
         # Pad + mask after per-sequence EOS tokens
         completion_ids = [torch.tensor(ids, device=device) for ids in completion_ids]
         completion_ids = pad(
-            completion_ids, padding_value=self.processing_class.pad_token_id
-        )  # type: ignore
+            completion_ids,
+            padding_value=self.processing_class.pad_token_id,  # type: ignore
+        )
 
         completion_mask = [
             torch.tensor(mask, device=device) for mask in completion_mask
@@ -325,8 +327,10 @@ class GRPOGuidedTrainer(GRPOTrainer):
             keys = [key for key in inputs[0] if key not in ["prompt", "completion"]]  # type: ignore
             reward_kwargs = {key: [example[key] for example in inputs] for key in keys}  # type: ignore
             output_reward_func = reward_func(
-                prompts=prompts, completions=completions, **reward_kwargs
-            )  # type: ignore
+                prompts=prompts,  # type: ignore
+                completions=completions,
+                **reward_kwargs,  # type: ignore
+            )
             rewards_per_func[:, i] = torch.tensor(
                 output_reward_func, dtype=torch.float32, device=device
             )
@@ -344,11 +348,13 @@ class GRPOGuidedTrainer(GRPOTrainer):
 
         # Normalize the rewards to compute the advantages
         mean_grouped_rewards = mean_grouped_rewards.repeat_interleave(
-            self.num_generations, dim=0
-        )  # type: ignore
+            self.num_generations,  # type: ignore
+            dim=0,
+        )
         std_grouped_rewards = std_grouped_rewards.repeat_interleave(
-            self.num_generations, dim=0
-        )  # type: ignore
+            self.num_generations,  # type: ignore
+            dim=0,
+        )
         advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
 
         # Slice to keep only the local part of the data
@@ -363,10 +369,10 @@ class GRPOGuidedTrainer(GRPOTrainer):
 
         completion_length = (
             self.accelerator.gather_for_metrics(completion_mask.sum(1))
-            .float()
+            .float()  # type: ignore
             .mean()
             .item()
-        )  # type: ignore
+        )
         self._metrics[mode]["completion_length"].append(completion_length)
 
         reward_per_func = rewards_per_func.mean(0)  # type: ignore
