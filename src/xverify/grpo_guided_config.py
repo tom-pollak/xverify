@@ -4,6 +4,7 @@ from trl import GRPOConfig
 
 __all__ = ["GuidedGRPOConfig", "get_default_grpo_config"]
 
+
 @dataclass
 class GuidedGRPOConfig(GRPOConfig):
     max_steps: int = 10
@@ -54,5 +55,5 @@ def get_default_grpo_config(
         report_to="wandb",
         reward_weights=None,
     )
-    # overwrites default args with kwarg
-    return GuidedGRPOConfig(**default_args, **kwargs)
+    # overwrites default args with kwargs
+    return GuidedGRPOConfig(**{**default_args, **kwargs})
