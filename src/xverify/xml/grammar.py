@@ -15,6 +15,7 @@ Key features:
 from __future__ import annotations
 
 import json
+import types
 from enum import Enum
 from inspect import getdoc, isclass
 from typing import (
@@ -161,7 +162,7 @@ class TypeInfo:
             return TypeKind.DICT
 
         # Handle union types (includes Optional)
-        if self.origin is Union or str(type(self.python_type)).endswith("UnionType"):
+        if self.origin is Union or self.origin is types.UnionType:
             return TypeKind.UNION
 
         # Handle Literal types
