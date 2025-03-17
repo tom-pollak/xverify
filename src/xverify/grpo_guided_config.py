@@ -45,7 +45,7 @@ def get_default_grpo_config(
         gradient_checkpointing=True,
         save_strategy="steps",
         save_steps=100,
-        save_only_model=True,
+        save_only_model=False,
         use_vllm=True,
         vllm_device=f"cuda:{num_gpus-1}",
         vllm_gpu_memory_utilization=0.7 if num_gpus > 1 else 0.3,

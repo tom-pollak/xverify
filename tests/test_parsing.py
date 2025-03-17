@@ -8,86 +8,27 @@ to generate parseable XML outputs for a wide variety of model structures.
 
 from enum import Enum
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
-from xml.parsers.expat import ExpatError as ParseError
 
 import pytest
-import xmltodict
 from pydantic import BaseModel, Field
+
 from xverify import GuidedSchema, XMLToolUse
 from xverify.tools import calculator, search
 
 
-# Mock LLM for testing without actual model calls
-class MockLLM:
-    """Mock LLM that returns predefined responses based on model structure."""
-
-    def __init__(self, *args, **kwargs):
-        self.responses = {}
-
-    def add_response(self, model_name: str, xml_response: str):
-        """Add a predefined response for a model name."""
-        self.responses[model_name] = xml_response
-
-    def generate(self, prompt, sampling_params=None, **kwargs):
-        """Generate mock response based on model name detected in prompt."""
-        for model_name, response in self.responses.items():
-            if model_name in prompt:
-                return [MockOutput(response)]
-
-        # Default simple response if no specific match
-        return [
-            MockOutput("<SimpleModel>\n<value>default response</value>\n</SimpleModel>")
-        ]
-
-
-class MockOutput:
-    """Mock output from LLM to simulate vLLM response structure."""
-
-    def __init__(self, text):
-        self.outputs = [MockOutputText(text)]
-
-
-class MockOutputText:
-    """Mock output text from LLM."""
-
-    def __init__(self, text):
-        self.text = text
-
-
 # Test utility function
-def run_model_parsing_test(model_cls, xml_response=None, should_parse=True):
+def run_model_parsing_test(model_cls, xml_response, should_parse=True):
     """
     Test that a model can be properly processed through the entire pipeline.
 
     Args:
         model_cls: Pydantic model class to test
-        xml_response: Optional mock XML response (otherwise generates from model)
+        xml_response: Optional mock XML response
         should_parse: Whether parsing should succeed
     """
-    # Initialize environment with model
     env = GuidedSchema(model_cls)
-
-    # Use mock LLM for testing
-    mock_llm = MockLLM()
-
-    # If no XML response provided, generate a simple one based on model structure
-    if xml_response is None:
-        xml_response = generate_sample_xml(model_cls)
-
-    # Add response to mock LLM
-    mock_llm.add_response(model_cls.__name__, xml_response)
-
-    # Create sampling parameters
-    sampling_params = env.sampling_params(max_tokens=500, temperature=0.7)
-
-    # Generate mock output
-    prompt = f"Generate XML for {model_cls.__name__}:\n{env.doc}"
-    mock_output = mock_llm.generate(prompt, sampling_params=sampling_params)
-    output_text = mock_output[0].outputs[0].text
-
-    # Try to parse output
     try:
-        parsed = env.parse(output_text)
+        parsed = env.parse(xml_response)
         if should_parse:
             assert (
                 parsed is not None
@@ -105,72 +46,31 @@ def run_model_parsing_test(model_cls, xml_response=None, should_parse=True):
             pytest.fail(f"Error parsing output for {model_cls.__name__}: {str(e)}")
 
 
-def generate_sample_xml(model_cls):
-    """Generate a simple XML sample based on model structure."""
-    model_name = model_cls.__name__
+@pytest.mark.skip(reason="Requires actual LLM connection")
+def test_with_real_llm():
+    """Test with actual LLM (skipped by default)."""
+    from vllm import LLM
 
-    # Check for primitive field types
-    if hasattr(model_cls, "__annotations__"):
-        fields = []
-        for field_name, field_type in model_cls.__annotations__.items():
-            field_xml = generate_field_xml(field_name, field_type)
-            fields.append(field_xml)
+    # Initialize LLM
+    llm = LLM(model="Qwen/Qwen2.5-1.5B-Instruct", max_model_len=2000)
 
-        xml = f"<{model_name}>\n" + "\n".join(fields) + f"\n</{model_name}>"
-        return xml
+    # Test with simple model
+    env = GuidedSchema(SimpleModel)
+    prompt = f"You are a structured output testing engineer. Fuzzily test the structured output given:\n{env.doc}"
 
-    # Default simple response
-    return f"<{model_name}>\n<value>sample value</value>\n</{model_name}>"
+    sampling_params = env.sampling_params(max_tokens=500, temperature=1.0)
+    output = llm.generate(prompt, sampling_params=sampling_params)
 
-
-def generate_field_xml(field_name, field_type):
-    """Generate XML for a field based on its type."""
-    origin = getattr(field_type, "__origin__", None)
-    args = getattr(field_type, "__args__", [])
-
-    # Handle primitive types
-    if field_type == str:
-        return f"<{field_name}>sample text</{field_name}>"
-    elif field_type == int:
-        return f"<{field_name}>42</{field_name}>"
-    elif field_type == bool:
-        return f"<{field_name}>true</{field_name}>"
-    elif field_type == float:
-        return f"<{field_name}>3.14</{field_name}>"
-
-    # Handle list types with new format
-    elif origin == list:
-        item_type = args[0] if args else Any
-        return f"<{field_name}>\n<list>\n<list-item>{generate_simple_value(item_type)}</list-item>\n</list>\n</{field_name}>"
-
-    # Handle union types (including Optional)
-    elif origin == Union:
-        # Use the first non-None type for the sample
-        for arg in args:
-            if arg is not type(None):
-                return f"<{field_name}>{generate_simple_value(arg)}</{field_name}>"
-        return f"<{field_name}>null</{field_name}>"
-
-    # Handle dict types with new format (without dict-entry tags)
-    elif origin == dict:
-        return f"<{field_name}>\n<dict>\n<key>sample_key</key>\n<value>sample_value</value>\n</dict>\n</{field_name}>"
-
-    # Default for unknown/complex types
-    return f"<{field_name}>sample value</{field_name}>"
-
-
-def generate_simple_value(type_hint):
-    """Generate a simple value for a type hint."""
-    if type_hint == str:
-        return "sample text"
-    elif type_hint == int:
-        return "42"
-    elif type_hint == bool:
-        return "true"
-    elif type_hint == float:
-        return "3.14"
-    else:
-        return "sample value"
+    text = output[0].outputs[0].text
+    try:
+        parsed = env.parse(text)
+        assert parsed is not None, "Failed to parse LLM output"
+        assert isinstance(parsed, SimpleModel), "Parsed result has wrong type"
+    except Exception as e:
+        if "ParseError" in str(e.__class__):
+            pytest.skip("LLM output was incomplete")
+        else:
+            pytest.fail(f"Error parsing LLM output: {str(e)}")
 
 
 class A(BaseModel):
@@ -237,6 +137,12 @@ class UnionModel(BaseModel):
     value: Union[str, int]
     status: Status
     mode: Literal["simple", "advanced"]
+
+
+class NativeUnionModel(BaseModel):
+    """Model with native union field."""
+
+    value: str | int
 
 
 class NestedUnionModel(BaseModel):
@@ -407,6 +313,23 @@ def test_union_model():
     run_model_parsing_test(UnionModel, xml)
 
 
+def test_native_union_model():
+    """Test model with native union field."""
+    xml = """
+    <NativeUnionModel>
+    <value>42</value>
+    </NativeUnionModel>
+    """
+    run_model_parsing_test(NativeUnionModel, xml)
+
+    xml = """
+    <NativeUnionModel>
+    <value>string value</value>
+    </NativeUnionModel>
+    """
+    run_model_parsing_test(NativeUnionModel, xml)
+
+
 def test_nested_union_model():
     """Test model with nested union field."""
     xml = """
@@ -575,37 +498,3 @@ def test_wrong_model_xml():
     </WrongModel>
     """
     run_model_parsing_test(SimpleModel, xml, should_parse=False)
-
-
-# Integration test with actual LLM (disabled by default)
-@pytest.mark.skip(reason="Requires actual LLM connection")
-def test_with_real_llm():
-    """Test with actual LLM (skipped by default)."""
-    from vllm import LLM
-
-    # Initialize LLM
-    llm = LLM(model="Qwen/Qwen2.5-1.5B-Instruct", max_model_len=2000)
-
-    # Test with simple model
-    env = GuidedSchema(SimpleModel)
-    prompt = f"You are a structured output testing engineer. Fuzzily test the structured output given:\n{env.doc}"
-
-    sampling_params = env.sampling_params(max_tokens=500, temperature=1.0)
-    output = llm.generate(prompt, sampling_params=sampling_params)
-
-    text = output[0].outputs[0].text
-    try:
-        parsed = env.parse(text)
-        assert parsed is not None, "Failed to parse LLM output"
-        assert isinstance(parsed, SimpleModel), "Parsed result has wrong type"
-    except Exception as e:
-        if "ParseError" in str(e.__class__):
-            pytest.skip("LLM output was incomplete")
-        else:
-            pytest.fail(f"Error parsing LLM output: {str(e)}")
-
-
-if __name__ == "__main__":
-    # Run a simple test when executed directly
-    test_simple_model()
-    print("Simple model test passed!")

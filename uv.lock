@@ -263,6 +263,19 @@ wheels = [
 ]
 
 [[package]]
+name = "bitsandbytes"
+version = "0.45.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "torch" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/0f/3a5f062c0ed2252ed128ff028b36d2a46a763a2919b00f12ca5274493ff3/bitsandbytes-0.45.3-py3-none-manylinux_2_24_x86_64.whl", hash = "sha256:720d67ffa8a5c61c958fb62517e8abbb2ab0ac1b33b66506ae911cb34c836c70", size = 76058963 },
+    { url = "https://files.pythonhosted.org/packages/dd/e4/42d721904d5841f029f8af69a8609980fb160cca435cb547eb1780872340/bitsandbytes-0.45.3-py3-none-win_amd64.whl", hash = "sha256:7251d71814a653b2b78b69149f1e88753598688c760c99cbbfb0512ba4ea39c6", size = 75429768 },
+]
+
+[[package]]
 name = "blake3"
 version = "1.0.4"
 source = { registry = "https://pypi.org/simple" }
@@ -4105,6 +4118,7 @@ name = "xverify"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "bitsandbytes" },
     { name = "docstring-parser" },
     { name = "fastcore" },
     { name = "liger-kernel" },
@@ -4141,6 +4155,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "bitsandbytes", specifier = ">=0.45.3" },
     { name = "docstring-parser", specifier = ">=0.16" },
     { name = "duckduckgo-search", marker = "extra == 'tools'", specifier = ">=7.5.1" },
     { name = "fastcore", specifier = ">=1.7.29" },

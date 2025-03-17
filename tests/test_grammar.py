@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Annotated, Any, Dict, List, Literal, Optional, Set, Union
 
 from pydantic import BaseModel, Field
+
 from xverify.xml import generate_gbnf_grammar_and_documentation
 
 
