@@ -20,6 +20,7 @@ dependencies = [
     "liger-kernel>=0.5.4",
     "rich>=13.9.4",
     "bitsandbytes>=0.45.3",
+    "mcp[cli]>=1.4.1",
 ]
 
 [project.urls]
@@ -37,6 +38,7 @@ tools = [
     "numpy>=1.26.4",
     "scipy>=1.15.2",
     "sympy>=1.13.1",
+    "mcp-server-time>=0.6.2",
 ]
 flash-attn = ["flash-attn"]
 

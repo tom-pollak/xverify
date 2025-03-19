@@ -6,7 +6,7 @@ from xml.etree.ElementTree import ParseError
 from pydantic import BaseModel, ValidationError
 from vllm.sampling_params import GuidedDecodingParams, RequestOutputKind, SamplingParams
 
-from .tool_use import run_tools
+from .tools.tool_use import run_tools
 from .xml import generate_gbnf_grammar_and_documentation, parse_xml_to_model
 
 

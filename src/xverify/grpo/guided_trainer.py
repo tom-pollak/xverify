@@ -23,11 +23,13 @@ from vllm import LLM, SamplingParams
 
 import wandb
 
-from .grpo_guided_config import GuidedGRPOConfig
-from .guided_schema import GuidedSchema
-from .utils.logging_utils import print_prompt_completions_sample
+from ..guided_schema import GuidedSchema
+from ..utils.logging_utils import print_prompt_completions_sample
+from .guided_config import GuidedGRPOConfig
 
 RewardFunc = Union[str, PreTrainedModel, Callable[[list, list], list[float]]]
+
+__all__ = ["GuidedGRPOConfig", "GRPOGuidedTrainer"]
 
 
 class GRPOGuidedTrainer(GRPOTrainer):
