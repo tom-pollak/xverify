@@ -19,26 +19,6 @@ from .tool_use import BaseTool
 
 __all__ = ["MCPClient"]
 
-"""
-Client for Model Context Protocol (MCP) servers.
-
-Example:
-```python
-# Create a client (connects automatically)
-client = MCPClient("npx", ["-y", "@modelcontextprotocol/server-calculator"])
-
-# Use tools in your models
-class Math(BaseModel):
-    expression: str
-    result: XMLToolUse[client["calculate"]]
-
-# Use multiple tools
-class MultiTool(BaseModel):
-    query: str
-    tool: XMLToolUse[client["search", "summarize"]]
-```
-"""
-
 
 class MCPClient:
     _event_loop: asyncio.AbstractEventLoop | None
@@ -147,7 +127,7 @@ class MCPClient:
             return _f
 
         tool_func = _tool_func(client=self)
-        tool_func.__name__ = tool_name  # type: ignore
+        tool_func.__name__ = tool_name
 
         return create_model(
             tool_name,

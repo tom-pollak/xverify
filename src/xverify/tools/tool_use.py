@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Union
+from typing import Annotated, Union
 
 from pydantic import BaseModel, Field
 
@@ -8,11 +8,11 @@ from .convert import BaseTool, tool2model
 __all__ = ["run_tools", "JSONToolUse", "XMLToolUse"]
 
 
-def run_tools(model: BaseModel) -> dict | None:
+def run_tools(model: BaseModel, unwrap_content: bool = True) -> dict | None:
     """
     Run all tools in the model. Return a dictionary of nested results.
     """
-    return _run_nested_tools(model)  # type: ignore
+    return _run_nested_tools(model, unwrap_content)  # type: ignore
 
 
 class XMLToolUse(ToolUse):
@@ -61,27 +61,31 @@ def _mk_models(tools, discriminator: str | None):
     return models
 
 
-def _run_nested_tools(item):
+def _run_nested_tools(item, unwrap_content):
     match item:
         # If the item is a tool, run it and return its output keyed by the tool name.
         case BaseTool() as tool:
-            return {tool._tool_name: tool.run_tool()}  # type: ignore
+            return {tool._tool_name: tool.run_tool(unwrap_content=unwrap_content)}  # type: ignore
 
         # For any other BaseModel, process its fields recursively and filter out empty results.
         case BaseModel():
-            subitems = {field: _run_nested_tools(value) for field, value in item}
+            subitems = {
+                field: _run_nested_tools(value, unwrap_content) for field, value in item
+            }
             subitems = {k: v for k, v in subitems.items() if v is not None}
             return subitems or None
 
         # Iterable containers
         case list() | tuple() | set() as container:
-            processed = [_run_nested_tools(i) for i in container]
+            processed = [_run_nested_tools(i, unwrap_content) for i in container]
             processed = type(container)(x for x in processed if x is not None)
             return processed or None
 
         # Mapping containers
         case dict():
-            new_dict = {k: _run_nested_tools(v) for k, v in item.items()}
+            new_dict = {
+                k: _run_nested_tools(v, unwrap_content) for k, v in item.items()
+            }
             new_dict = {k: v for k, v in new_dict.items() if v is not None}
             return new_dict or None
 

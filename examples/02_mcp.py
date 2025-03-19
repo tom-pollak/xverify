@@ -1,87 +1,96 @@
-# %%
-
 """Example of using the unified MCP integration with xVerify."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-import xverify as xv
+from xverify import GuidedSchema, MCPClient, XMLToolUse, run_tools
 
-client = xv.MCPClient(
-    "uv",
-    ["run", "-m", "server"],
-)
+client = MCPClient("python", ["server.py"])
 
 print(f"Available tools: {client.list_tools()}")
 
-# Ways to use MCP tools:
+
+class A(BaseModel):
+    tool: XMLToolUse[client["add", "greeting"]]
 
 
-# 1. Direct usage with XMLToolUse
-class SimpleSearch(BaseModel):
-    """Model for performing a web search."""
+schema = GuidedSchema(A)
+print(schema.gbnf)
+print("-" * 100)
+print(schema.doc)
 
-    query: str = Field(..., description="The search query")
-    tool: xv.XMLToolUse[client["search"]]  # Works exactly like function-based tools
-
-
-# 2. Multiple tools with unpacking
-class AdvancedSearch(BaseModel):
-    """Model for advanced search using multiple tools."""
-
-    query: str = Field(..., description="The search query")
-    # Multiple tools (uses the list returned by client["x", "y"])
-    tool: xv.XMLToolUse[client["search", "brave_summarize"]]
-
-
-# 3. JSON format with discriminator
-class DiscriminatedSearch(BaseModel):
-    """Model using JSON discriminator for tool selection."""
-
-    query: str = Field(..., description="The search query")
-    tool: xv.JSONToolUse[client["search", "brave_summarize"]]
-
-
-# 4. Mixing MCP tools with regular function-based tools
-class HybridTools(BaseModel):
-    """Model mixing MCP tools with traditional function-based tools."""
-
-    query: str = Field(..., description="The query or calculation")
-    # Mix both types of tools
-    tool: xv.XMLToolUse[client["search"], xv.calculator]
-
-
-# Create a GuidedSchema with the model
-schema = xv.GuidedSchema(SimpleSearch)
-
-# Example XML response (in practice, would come from an LLM)
-example_response = """
-<SimpleSearch>
-<query>What is the Model Context Protocol?</query>
+res = """
+<A>
 <tool>
-<search>
-<query>What is the Model Context Protocol?</query>
-<num_results>3</num_results>
-</search>
+<add>
+<a>1</a>
+<b>2</b>
+</add>
 </tool>
-</SimpleSearch>
+</A>
 """
 
 # Parse the response
-parsed = schema.parse(example_response)
-print(f"\nParsed query: {parsed.query}")
-print(f"Tool type: {type(parsed.tool).__name__}")
+parsed = schema.parse(res)
+assert parsed
+print(run_tools(parsed))
 
-# You can run the tool directly (using the unified BaseTool implementation)
-if parsed:
-    print("\nTool execution would normally run here")
-    # In a real application:
-    # result = parsed.tool.run_tool()
-    # print(f"Result: {result}")
+res = """
+<A>
+<tool>
+<greeting>
+<name>John</name>
+</greeting>
+</tool>
+</A>
+"""
 
-# Check GBNF grammar and documentation
-print(f"\nGrammar snippet (first 150 chars):\n{schema.gbnf[:150]}...")
-print(f"\nDocumentation snippet:\n{schema.doc[:200]}...")
+parsed = schema.parse(res)
+assert parsed
+print(run_tools(parsed))
 
-# Clean up
-client.close()
-# %%
+
+res = """
+<A>
+<tool>
+<add>
+<b>2</b>
+</add>
+</tool>
+</A>
+"""
+
+parsed = schema.parse(res)
+assert not parsed
+
+
+# class B(BaseModel):
+#     tool: XMLToolUse[client["add2"]]
+
+
+
+client = MCPClient("python", ["-m", "mcp_server_time", "--local-timezone=America/New_York"])
+
+class Time(BaseModel):
+    time: XMLToolUse[client["get_current_time"]]
+
+schema = GuidedSchema(Time)
+print(schema.gbnf)
+print("-" * 100)
+print(schema.doc)
+
+res = """
+<Time>
+<time>
+<get_current_time>
+<timezone>
+America/New_York
+</timezone>
+</get_current_time>
+</time>
+</Time>
+"""
+
+parsed = schema.parse(res)
+assert parsed
+print(run_tools(parsed))
+
