@@ -121,4 +121,4 @@ def jsonschema2model(
     if return_fields:
         return model_fields
     else:
-        return create_model(schema["title"], **model_fields)
+        return create_model(schema["title"].replace(" ", "_"), **model_fields)

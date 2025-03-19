@@ -4,12 +4,14 @@ MCP integration for xVerify.
 This module provides tools for integrating Model Context Protocol (MCP) servers with xVerify.
 """
 
-import os
 import asyncio
-from typing import List, Optional, Type
+import os
+import warnings
+from contextlib import AsyncExitStack
+from functools import lru_cache
+from typing import Any, Type
 
-from mcp.client.session import ClientSession
-from mcp.client.stdio import StdioServerParameters, stdio_client
+from mcp import ClientSession, StdioServerParameters, stdio_client
 from pydantic import BaseModel, create_model
 
 from .convert import jsonschema2model
@@ -17,69 +19,94 @@ from .tool_use import BaseTool
 
 __all__ = ["MCPClient"]
 
+"""
+Client for Model Context Protocol (MCP) servers.
+
+Example:
+```python
+# Create a client (connects automatically)
+client = MCPClient("npx", ["-y", "@modelcontextprotocol/server-calculator"])
+
+# Use tools in your models
+class Math(BaseModel):
+    expression: str
+    result: XMLToolUse[client["calculate"]]
+
+# Use multiple tools
+class MultiTool(BaseModel):
+    query: str
+    tool: XMLToolUse[client["search", "summarize"]]
+```
+"""
+
 
 class MCPClient:
-    """
-    Client for Model Context Protocol (MCP) servers.
-
-    Example:
-    ```python
-    # Create a client (connects automatically)
-    client = MCPClient("npx", ["-y", "@modelcontextprotocol/server-calculator"])
-
-    # Use tools in your models
-    class Math(BaseModel):
-        expression: str
-        result: XMLToolUse[client["calculate"]]
-
-    # Use multiple tools
-    class MultiTool(BaseModel):
-        query: str
-        tool: XMLToolUse[client["search", "summarize"]]
-    ```
-    """
+    _event_loop: asyncio.AbstractEventLoop | None
+    _exit_stack: AsyncExitStack
+    _session: ClientSession
 
     def __init__(
         self,
         command: str,
-        args: Optional[List[str]] = None,
+        args: list[str] | None = None,
         env: dict[str, str] = dict(os.environ),
     ):
         """
-        Initialize and connect to an MCP server.
+        Initialize a synchronous MCP connection manager.
 
         Args:
-            command: The command to run the MCP server
-            args: Arguments for the command
+            command: The command to execute (e.g., "python")
+            args: Optional command line arguments
+            env: Optional environment variables
         """
 
-        async def _connect(command: str, args: List[str], env: dict | None):
-            """Connect to an MCP server."""
-            # Set up connection
-            params = StdioServerParameters(command=command, args=args, env=env)
-            async with stdio_client(params) as streams:
-                read, write = streams
-                self.session = ClientSession(read, write)
-                print("before initialize")
-                await self.session.initialize()
-                print("after initialize")
+        async def _connect(server_params: StdioServerParameters):
+            _exit_stack = AsyncExitStack()
 
-                # Discover tools and resources
-                result = await self.session.list_tools()
-                self.tools = {tool.name: tool for tool in result.tools}
-                result = await self.session.list_resources()
-                self.resources = {
-                    resource.uri: resource for resource in result.resources
-                }
+            # Set up the stdio client
+            read_stream, write_stream = await _exit_stack.enter_async_context(
+                stdio_client(server_params)
+            )
+            _session = await _exit_stack.enter_async_context(
+                ClientSession(read_stream, write_stream)
+            )
 
-        self.session = None
-        self.tools = {}
-        self.resources = {}
-        self.tool_models = {}
+            # Initialize the session
+            await _session.initialize()
+            return _exit_stack, _session
 
-        # Connect immediately
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(_connect(command, args or [], env))
+        self._event_loop = None
+        self._exit_stack, self._session = self._run_async(
+            _connect(
+                server_params=StdioServerParameters(
+                    command=command,
+                    args=args or [],
+                    env=env,
+                )
+            )
+        )
+
+    def _run_async(self, coro):
+        """Run an async coroutine in the event loop and return the result synchronously."""
+        if self._event_loop is None or self._event_loop.is_closed():
+            self._event_loop = asyncio.new_event_loop()
+        return self._event_loop.run_until_complete(coro)
+
+    def __del__(self):
+        """Clean up resources when the object is garbage collected."""
+
+        async def _close_exit_stack():
+            await self._exit_stack.aclose()
+
+        try:
+            self._run_async(_close_exit_stack())
+        except Exception as e:
+            warnings.warn(f"Error closing exit stack: {e}")
+
+        if self._event_loop is not None and not self._event_loop.is_closed():
+            self._event_loop.close()
+
+    # === Tool models ===
 
     def __getitem__(
         self,
@@ -101,105 +128,81 @@ class MCPClient:
             else self.get_tool(tool_names)
         )
 
+    @lru_cache(maxsize=None)
     def get_tool(self, tool_name: str) -> Type[BaseModel]:
-        """Get a tool model by name."""
-        # Return cached model if available
-        if tool_name in self.tool_models:
-            return self.tool_models[tool_name]
-
-        # Check if the tool exists
-        if tool_name not in self.tools:
-            available = ", ".join(self.tools.keys())
-            raise KeyError(f"Tool '{tool_name}' not found. Available: {available}")
-
-        # Create and cache the model
-        model = self._create_tool_model(tool_name)
-        self.tool_models[tool_name] = model
-        return model
-
-    def list_tools(self) -> List[str]:
-        """List all available tool names."""
-        return list(self.tools.keys())
-
-    def list_resources(self) -> List[str]:
-        """List all available resource URIs."""
-        return list(self.resources.keys())
-
-    def read_resource(self, uri: str) -> str:
-        """Read a resource synchronously."""
-
-        async def _read_resource_async(uri: str) -> str:
-            """Read a resource asynchronously."""
-            if self.session is None:
-                raise RuntimeError("Not connected to an MCP server")
-
-            result = await self.session.read_resource(uri=uri)  # type: ignore
-
-            # Extract text content
-            for content in result.contents:
-                if hasattr(content, "text") and content.text:
-                    return content.text
-
-            return ""
-
-        if not self.session:
-            raise RuntimeError("Not connected to an MCP server")
-
-        loop = asyncio.get_event_loop()
-        return loop.run_until_complete(_read_resource_async(uri))
-
-    def close(self):
-        """Close the connection."""
-        if self.session:
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(self.session.close())
-            self.session = None
-
-    def __del__(self):
-        """Clean up when the client is garbage collected."""
-        self.close()
-
-    def _create_tool_model(self, tool_name: str) -> Type[BaseModel]:
         """Create a Pydantic model for an MCP tool."""
 
-        def _create_tool_executor(tool_name: str):
-            """Create a function that executes an MCP tool."""
-            client = self  # Capture client reference
+        tools = self.list_tools().tools
+        try:
+            tool = next(tool for tool in tools if tool.name == tool_name)
+        except StopIteration as e:
+            raise KeyError(f"Tool '{tool_name}' not found. Available: {tools}") from e
 
-            # Create a function that will execute the tool
-            async def _execute_tool_async(**kwargs):
-                if client.session is None:
-                    raise RuntimeError("Not connected to an MCP server")
-
-                result = await client.session.call_tool(tool_name, kwargs)  # type: ignore
-
-                # Extract text content
-                text_parts = []
-                for content in result.content:
-                    if hasattr(content, "text") and content.text:
-                        text_parts.append(content.text)
-
-                return "\n".join(text_parts)
-
-            # synchronous wrapper
-            def execute_tool(**kwargs):
-                loop = asyncio.get_event_loop()
-                return loop.run_until_complete(_execute_tool_async(**kwargs))
-
-            # Set name to match tool name for proper identification
-            execute_tool.__name__ = tool_name
-
-            return execute_tool
-
-        tool = self.tools[tool_name]
         fields: dict = jsonschema2model(tool.inputSchema, return_fields=True)  # type: ignore
-        model = create_model(
+
+        def _tool_func(client):
+            def _f(**kwargs):
+                return client.call_tool(name=tool_name, arguments=kwargs)
+
+            return _f
+
+        tool_func = _tool_func(client=self)
+        tool_func.__name__ = tool_name  # type: ignore
+
+        return create_model(
             tool_name,
-            __doc__=tool.description or f"MCP tool: {tool_name}",
+            __doc__=tool.description,
             __base__=BaseTool,
-            _tool=_create_tool_executor(tool_name),
-            _tool_name=tool_name,
+            __cls_kwargs__=dict(_tool_func=tool_func),
             **fields,
         )
 
-        return model
+    # === Synchronous session method wrappers ===
+
+    def list_prompts(self):
+        """List available prompts from the server (blocking)."""
+
+        async def _list_prompts():
+            return await self._session.list_prompts()
+
+        return self._run_async(_list_prompts())
+
+    def list_tools(self):
+        """List available tools from the server (blocking)."""
+
+        async def _list_tools():
+            return await self._session.list_tools()
+
+        return self._run_async(_list_tools())
+
+    def list_resources(self):
+        """List available resources from the server (blocking)."""
+
+        async def _list_resources():
+            return await self._session.list_resources()
+
+        return self._run_async(_list_resources())
+
+    def call_tool(self, name: str, arguments: dict[str, Any] | None = None):
+        """Call a tool on the server (blocking)."""
+
+        async def _call_tool():
+            return await self._session.call_tool(name, arguments)
+
+        return self._run_async(_call_tool())
+
+    def read_resource(self, uri: str):
+        """Read a resource from the server (blocking)."""
+
+        async def _read_resource():
+            return await self._session.read_resource(uri)  # type: ignore
+
+        return self._run_async(_read_resource())
+
+    def get_prompt(self, name: str, arguments: dict[str, Any] | None = None):
+        """Get a prompt from the server (blocking)."""
+
+        async def _get_prompt():
+            return await self._session.get_prompt(name, arguments)
+
+        return self._run_async(_get_prompt())
