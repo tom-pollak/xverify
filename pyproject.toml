@@ -23,7 +23,6 @@ dependencies = [
     "mcp[cli]>=1.4.1",
     "dotenv>=0.9.9",
     "zstandard>=0.23.0",
-    "transformers>=4.50.0",
 ]
 
 [project.urls]
