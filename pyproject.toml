@@ -4,25 +4,28 @@ version = "0.1.0"
 description = "Guided XML Decoding x GRPO"
 readme = "README.md"
 authors = [{ name = "Tom Pollak", email = "tompollak1000@gmail.com" }]
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
-    "setuptools>=76.0.0",
-    "wheel>=0.45.1",
+    "setuptools",
+    "wheel",
+    "ninja",
     "xmltodict>=0.14.2",
     "docstring-parser>=0.16",
-    "fastcore>=1.7.29",
     "pydantic>=2.10.6",
     "torch>=2.0.0",
-    "trl",
-    "vllm>=0.7.3",
-    "peft>=0.14.0",
-    "wandb>=0.19.8",
+    # "trl",
+    # "vllm>=0.7.3",
+    # "zstandard>=0.23.0",
+    # "transformers>=4.50.0",
     "liger-kernel>=0.5.4",
-    "rich>=13.9.4",
+    "peft>=0.14.0",
     "bitsandbytes>=0.45.3",
+    "wandb>=0.19.8",
+    "rich>=13.9.4",
     "mcp[cli]>=1.4.1",
     "dotenv>=0.9.9",
-    "zstandard>=0.23.0",
+    "oat-llm>=0.0.9",
+    "vllm>=0.7.2",
 ]
 
 [project.urls]
@@ -43,7 +46,7 @@ tools = [
     "mcp-server-time>=0.6.2",
     "chess>=1.11.2",
 ]
-flash-attn = ["flash-attn"]
+flash-attn = ["flash-attn==2.7.0.post2"]
 
 # until new trl release
 [tool.uv.sources]
@@ -59,7 +62,7 @@ no-build-isolation-package = ["flash-attn"]
 [tool.ruff]
 line-length = 88
 # pyflakes, pycodestyle, isort
-select = ["F", "E", "W", "I001"]
+# select = ["F", "E", "W", "I001"]
 
 [tool.ruff.lint]
 ignore = [

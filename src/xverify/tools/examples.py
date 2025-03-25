@@ -10,10 +10,14 @@ def try_import(module: str) -> bool:
         )
 
 
-def calculator(
-    expression: str,  # A mathematical expression using only numbers and basic operators (+,-,*,/,**,())
-) -> str:  # The result of the calculation or an error message
+def calculator(expression: str) -> str:
     """Evaluates a single line of Python math expression. No imports or variables allowed.
+
+    Args:
+        expression (str): A mathematical expression using only numbers and basic operators (+,-,*,/,**,())
+
+    Returns:
+        str: The result of the calculation or an error message
 
     Examples:
         <expression>
@@ -40,11 +44,15 @@ def calculator(
         return f"Error: {str(e)}"
 
 
-def search(
-    query: str,  # The search query string
-    num_results: int = 5,  # Number of results to return (default: 5, max: 10)
-) -> str:  # Formatted string with bullet points of top results, each with title and brief summary
+def search(query: str, num_results: int = 5) -> str:
     """Searches DuckDuckGo and returns concise summaries of top results.
+
+    Args:
+        query (str): The search query string
+        num_results (int): Number of results to return (default: 5, max: 10)
+
+    Returns:
+        str: Formatted string with bullet points of top results, each with title and brief summary
 
     Examples:
         <query>
@@ -75,10 +83,15 @@ def search(
 
 
 # can be persistent if we save shell
-def code(
-    code: str,  # Code to execute
-):  # Result of expression on last line (if exists)
-    """Executes python `code` using persistent IPython."""
+def code(code: str):
+    """Executes python `code` using persistent IPython.
+
+    Args:
+        code (str): Python code to execute
+
+    Returns:
+        str: Result of expression on last line (if exists)
+    """
     try_import("toolslm")
     import traceback
 

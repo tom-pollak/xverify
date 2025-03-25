@@ -3,6 +3,7 @@ from pyexpat import ExpatError
 from typing import Callable, Literal
 from xml.etree.ElementTree import ParseError
 
+import msgspec
 from pydantic import BaseModel, ValidationError
 from vllm.sampling_params import GuidedDecodingParams, RequestOutputKind, SamplingParams
 
@@ -116,3 +117,7 @@ class GuidedSchema:
             output_kind=RequestOutputKind.FINAL_ONLY,
             **self._warn_and_remove_keys(kwargs, {"output_kind"}),
         )
+
+    @staticmethod
+    def serialize_sampling_params(sampling_params: SamplingParams) -> dict:
+        return msgspec.json.decode(msgspec.json.encode(sampling_params))

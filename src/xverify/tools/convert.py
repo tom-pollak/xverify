@@ -1,8 +1,7 @@
-import inspect
 from enum import Enum
 from typing import Any, Callable, Literal, Optional, Type
 
-from fastcore.docments import docments  # todo, use doc parser
+from docstring_parser import parse
 from pydantic import BaseModel, Field, create_model
 
 from .base import BaseTool
@@ -11,22 +10,14 @@ from .base import BaseTool
 def tool2model(tool: Callable, discriminator: str | None) -> Type[BaseTool]:
     """Convert a function signature to a Pydantic model with documentation"""
     assert isinstance(tool, Callable), "tool must be a callable"
+    assert tool.__doc__ is not None, "tool must have a docstring"
+
     name = tool.__name__
-    docs = docments(tool, full=True)
-    assert (
-        discriminator not in docs
-    ), f"{discriminator} is reserved for the discriminator"
+    docs = parse(tool.__doc__)
+    assert discriminator not in {
+        p.arg_name for p in docs.params
+    }, f"{discriminator} is reserved for the discriminator"
 
-    # Create docstring -- add return info if exists
-    docstring = tool.__doc__ or ""
-    return_info = docs.pop("return", {})
-    return_type = return_info.get("anno")
-    if return_type is not inspect._empty:
-        docstring += f"\nReturns: {return_type.__name__}"
-        if return_doc_str := return_info.get("docment"):
-            docstring += f" - {return_doc_str}"
-
-    # Build input parameters
     fields: dict = {}
     if discriminator is not None:
         fields[discriminator] = (
@@ -35,22 +26,19 @@ def tool2model(tool: Callable, discriminator: str | None) -> Type[BaseTool]:
         )
     fields.update(
         {
-            name: (
-                # parameter type
-                info["anno"],  # type: ignore
+            p.arg_name: (
+                p.type_name,  # parameter type
                 Field(
-                    default=(
-                        ... if info["default"] is inspect._empty else info["default"]
-                    ),  # type: ignore
-                    description=info.get("docment", None),  # doc for parameter
+                    default=p.default if p.is_optional else ...,
+                    description=p.description,
                 ),
             )
-            for name, info in docs.items()
+            for p in docs.params
         }
     )
     return create_model(
         name,
-        __doc__=docstring,
+        __doc__=tool.__doc__,
         __base__=BaseTool,
         __cls_kwargs__=dict(_tool_func=tool),
         **fields,
