@@ -1,40 +1,49 @@
 from importlib.util import find_spec
-from typing import Any, Dict, Tuple, Union
+from typing import Any
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+)
 
 
 def is_liger_available() -> bool:
     return find_spec("liger_kernel") is not None
 
 
-def get_model(model_name: str, model_kwargs: Union[Dict[str, Any], None] = None) -> Any:
-    if model_kwargs is None:
-        model_kwargs = dict(
-            torch_dtype=torch.bfloat16,
-            attn_implementation="flash_attention_2",
-            use_cache=False,
-        )
-    if is_liger_available():
-        print("Using Liger kernel")
+def get_model(model_name: str, **model_kwargs):
+    def _get_liger(nm, **kws):
         from liger_kernel.transformers import AutoLigerKernelForCausalLM  # type: ignore
 
-        return AutoLigerKernelForCausalLM.from_pretrained(model_name, **model_kwargs)
-    else:
-        return AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
+        return AutoLigerKernelForCausalLM.from_pretrained(nm, **kws)
 
+    def _get_hf(nm, **kws):
+        return AutoModelForCausalLM.from_pretrained(nm, **kws)
 
-def get_tokenizer(model_name: str) -> Any:
-    tokenizer = None
-    if "Instruct" in model_name:
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-    else:
+    model_kwargs = {
+        "torch_dtype": torch.bfloat16,
+        "attn_implementation": "flash_attention_2",
+        "use_cache": False,
+        "quantization_config": BitsAndBytesConfig(load_in_4bit=True),
+        **model_kwargs,
+    }
+    if is_liger_available():
+        print("Using Liger kernel")
         try:
-            tokenizer = AutoTokenizer.from_pretrained(model_name + "-Instruct")
+            return _get_liger(model_name, **model_kwargs)
         except Exception:
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            print("Failed to load Liger kernel, falling back to Hugging Face")
+            return _get_hf(model_name, **model_kwargs)
+    else:
+        return _get_hf(model_name, **model_kwargs)
+
+
+def get_tokenizer(model_name: str):
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
     if not hasattr(tokenizer, "pad_token"):
+        print("Tokenizer does not have pad_token, setting it to eos_token")
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.pad_token_id = tokenizer.eos_token_id
     if not hasattr(tokenizer, "chat_template"):
@@ -44,9 +53,7 @@ def get_tokenizer(model_name: str) -> Any:
     return tokenizer
 
 
-def get_model_and_tokenizer(
-    model_name: str, model_kwargs: Union[Dict[str, Any], None] = None
-) -> Tuple[Any, Any]:
-    model = get_model(model_name, model_kwargs)
+def get_model_and_tokenizer(model_name: str, **model_kwargs) -> tuple[Any, Any]:
+    model = get_model(model_name, **model_kwargs)
     tokenizer = get_tokenizer(model_name)
     return model, tokenizer

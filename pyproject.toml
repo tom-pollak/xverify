@@ -21,6 +21,9 @@ dependencies = [
     "rich>=13.9.4",
     "bitsandbytes>=0.45.3",
     "mcp[cli]>=1.4.1",
+    "dotenv>=0.9.9",
+    "zstandard>=0.23.0",
+    "transformers>=4.50.0",
 ]
 
 [project.urls]
@@ -39,6 +42,7 @@ tools = [
     "scipy>=1.15.2",
     "sympy>=1.13.1",
     "mcp-server-time>=0.6.2",
+    "chess>=1.11.2",
 ]
 flash-attn = ["flash-attn"]
 

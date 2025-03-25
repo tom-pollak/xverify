@@ -17,14 +17,14 @@ def run_tools(model: BaseModel, unwrap_content: bool = True) -> dict | None:
 
 class XMLToolUse(ToolUse):
     @classmethod
-    def __class_getitem__(cls, tools):
+    def __class_getitem__(cls, tools) -> type:
         models = _mk_models(tools, discriminator=None)
         return models[0] if len(models) == 1 else Union[*models]  # type: ignore
 
 
 class JSONToolUse(ToolUse):
     @classmethod
-    def __class_getitem__(cls, tools):
+    def __class_getitem__(cls, tools) -> type:
         models = _mk_models(tools, discriminator="tool_name")
         return (
             models[0]
@@ -36,7 +36,7 @@ class JSONToolUse(ToolUse):
         )
 
 
-def _mk_models(tools, discriminator: str | None):
+def _mk_models(tools, discriminator: str | None) -> list[type[BaseModel]]:
     # unpack tools
     if not isinstance(tools, tuple):
         tools = (tools,)

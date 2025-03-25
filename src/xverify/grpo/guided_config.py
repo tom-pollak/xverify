@@ -1,8 +1,11 @@
 from dataclasses import dataclass
+from typing import Any
 
 from trl import GRPOConfig
 
 __all__ = ["GuidedGRPOConfig", "get_default_grpo_config"]
+
+import torch
 
 
 @dataclass
@@ -24,16 +27,18 @@ def get_default_grpo_config(
     num_gpus: int = 1,
     **kwargs,
 ) -> GuidedGRPOConfig:
-    default_args = dict(
+    default_args: dict[str, Any] = dict(  # type: ignore
         output_dir=f"outputs/{run_name}",
         run_name=run_name,
         learning_rate=1e-6,
         lr_scheduler_type="constant_with_warmup",
-        warmup_steps=20,
+        warmup_ratio=0.1,
         num_train_epochs=1,
         bf16=True,
+        fp16=False,
         adam_beta1=0.9,
         adam_beta2=0.99,
+        weight_decay=0.1,
         max_grad_norm=0.1,
         num_iterations=1,
         beta=0.04,
@@ -46,6 +51,7 @@ def get_default_grpo_config(
         save_strategy="steps",
         save_steps=100,
         save_only_model=False,
+        save_total_limit=3,
         use_vllm=True,
         vllm_device=f"cuda:{num_gpus-1}",
         vllm_gpu_memory_utilization=0.7 if num_gpus > 1 else 0.3,
@@ -54,6 +60,11 @@ def get_default_grpo_config(
         log_completions=True,
         report_to="wandb",
         reward_weights=None,
+        # guided config
+        max_steps=10,
+        sleep_time=1.0,
+        mask_env_response=True,
+        max_workers=10,
     )
     # overwrites default args with kwargs
     return GuidedGRPOConfig(**{**default_args, **kwargs})
