@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Guided XML Decoding x GRPO"
 readme = "README.md"
 authors = [{ name = "Tom Pollak", email = "tompollak1000@gmail.com" }]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "setuptools",
     "wheel",

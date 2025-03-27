@@ -1,8 +1,8 @@
-from .grpo import (
-    GRPOGuidedTrainer,
-    GuidedGRPOConfig,
-    get_default_grpo_config,
-)
+# from .grpo import (
+#     GRPOGuidedTrainer,
+#     GuidedGRPOConfig,
+#     get_default_grpo_config,
+# )
 from .guided_schema import GuidedSchema
 from .tools import (
     JSONToolUse,
@@ -25,8 +25,6 @@ from .xml import (
 
 __all__ = [
     "GuidedSchema",
-    "GuidedGRPOConfig",
-    "GRPOGuidedTrainer",
     "MCPClient",
     "JSONToolUse",
     "XMLToolUse",
@@ -34,10 +32,12 @@ __all__ = [
     "get_model",
     "get_tokenizer",
     "get_model_and_tokenizer",
-    "get_default_grpo_config",
     "calculator",
     "search",
     "code",
     "parse_xml_to_model",
     "generate_gbnf_grammar_and_documentation",
+    # "GuidedGRPOConfig",
+    # "GRPOGuidedTrainer",
+    # "get_default_grpo_config",
 ]
